@@ -1,0 +1,775 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>The Canon — Listening Ledger</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Archivo:wght@400;500;600&family=Archivo+Black&family=Space+Mono:wght@400;700&display=swap');
+* { box-sizing: border-box; -webkit-tap-highlight-color: transparent; margin: 0; }
+body { min-height: 100vh; background: #131017; color: #EDE8DC; font-family: 'Archivo', sans-serif; }
+button { cursor: pointer; font-family: 'Archivo', sans-serif; }
+textarea { font-family: 'Archivo', sans-serif; width: 100%; background: #131017AA; border: 1px solid #332C40; border-radius: 10px; padding: 10px 12px; color: #EDE8DC; font-size: 14px; resize: vertical; }
+textarea:focus, button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+::placeholder { color: #6B6478; }
+#errbanner { display:none; background:#3D1414; color:#F5B8B8; font-family:'Space Mono',monospace; font-size:12px; padding:10px 16px; white-space:pre-wrap; }
+header { padding: 20px 16px 12px; border-bottom: 1px solid #2A2433; }
+.hrow { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; }
+h1 { font-family: 'Archivo Black', sans-serif; font-size: 26px; letter-spacing: 1px; }
+.status { font-family: 'Space Mono', monospace; font-size: 12px; color: #9B93A8; white-space: nowrap; }
+.sub { margin: 4px 0 12px; font-size: 13px; color: #9B93A8; }
+.meter { height: 5px; border-radius: 3px; background: #241F2E; overflow: hidden; }
+.meter > div { height: 100%; transition: width .4s ease; background: linear-gradient(90deg,#E5533C,#A8B0BC,#8B7BE8,#E0A13C,#3CB8AE,#D45C93); }
+nav { display: flex; gap: 8px; overflow-x: auto; padding: 14px 16px 6px; scrollbar-width: none; }
+nav::-webkit-scrollbar { display: none; }
+nav.decades { gap: 6px; padding: 8px 16px 12px; }
+.gpill { flex: 0 0 auto; padding: 8px 14px; border-radius: 999px; border: 1.5px solid #332C40; background: transparent; color: #B8B0C4; font-weight: 600; font-size: 13px; transition: all .15s ease; }
+.gpill.on { border-color: var(--gc); background: rgba(255,255,255,0.06); color: var(--gc); }
+.gpill small { font-family: 'Space Mono', monospace; font-size: 10px; margin-left: 6px; opacity: .7; }
+.dpill { flex: 0 0 auto; padding: 6px 12px; border-radius: 8px; border: none; background: transparent; color: #8A8296; font-family: 'Space Mono', monospace; font-size: 12px; border-bottom: 2px solid transparent; }
+.dpill.on { background: #241F2E; color: #EDE8DC; font-weight: 700; border-bottom-color: var(--accent); }
+main { padding: 0 16px 48px; max-width: 720px; margin: 0 auto; }
+.crate-head { display:flex; align-items:baseline; justify-content:space-between; padding: 6px 2px 10px; }
+.crate-title { font-family:'Space Mono', monospace; font-size: 11px; letter-spacing: 2px; text-transform: uppercase; color: var(--accent); }
+.crate-count { font-family:'Space Mono', monospace; font-size: 11px; color:#8A8296; }
+ol { list-style: none; padding: 0; }
+li { border-bottom: 1px solid #241F2E; }
+.arow { display: flex; align-items: center; gap: 10px; padding: 11px 2px; }
+.check { flex: 0 0 auto; width: 26px; height: 26px; border-radius: 50%; border: 2px solid #4A4258; background: transparent; color: #131017; font-size: 14px; font-weight: 700; line-height: 1; display: flex; align-items: center; justify-content: center; transition: all .15s ease; }
+.check.on { border-color: var(--accent); background: var(--accent); }
+.abtn { flex: 1; display: flex; align-items: baseline; gap: 10px; background: none; border: none; color: inherit; text-align: left; padding: 0; min-width: 0; }
+.anum { font-family: 'Space Mono', monospace; font-size: 11px; color: #6B6478; min-width: 20px; }
+.ainfo { min-width: 0; }
+.aname { font-size: 14.5px; font-weight: 600; color: #EDE8DC; }
+.aartist { font-size: 12.5px; color: #9B93A8; }
+.ayear { font-family:'Space Mono', monospace; font-size: 10.5px; color:#6B6478; margin-left: 6px; }
+.abadge { font-family:'Space Mono', monospace; font-size: 10px; color: var(--accent); margin-left: 8px; }
+.fbadge { font-family:'Space Mono', monospace; font-size: 12px; font-weight: 700; letter-spacing: 0.5px; margin-left: 8px; }
+.fbadge .cd { color: #4FD1FF; }
+.fbadge .cs { color: #FFD166; }
+.fbadge .lp { color: #FF7AC6; }
+.fbadge .rec { color: #7CF29B; }
+.chev { margin-left: auto; color:#6B6478; font-size: 14px; }
+.loadbox { display:flex; flex-direction:column; align-items:center; gap:16px; padding: 40px 16px; text-align:center; }
+.disc { width: 96px; height: 96px; border-radius: 50%; background: repeating-radial-gradient(circle at center, #0B0910 0 2px, #17131E 2px 4px); border: 2px solid var(--accent); position: relative; animation: spin 2.4s linear infinite; }
+.disc::after { content:""; position:absolute; inset:38%; border-radius:50%; background: var(--accent); opacity:.9; }
+.loadmsg { font-family:'Space Mono', monospace; font-size: 12px; color: #9B93A8; max-width: 320px; line-height: 1.6; }
+.errbox { padding: 32px 16px; text-align:center; }
+.errmsg { font-size: 14px; color:#C9C2D4; margin-bottom: 16px; line-height: 1.5; }
+.retry { padding: 9px 18px; border-radius: 999px; border: 1.5px solid var(--accent); background: transparent; color: var(--accent); font-weight: 600; font-size: 13px; }
+@keyframes spin { to { transform: rotate(360deg); } }
+@media (prefers-reduced-motion: reduce) { * { transition: none !important; animation: none !important; } }
+.back { display:inline-flex; align-items:center; gap:6px; background:none; border:none; color:#9B93A8; font-family:'Space Mono', monospace; font-size:12px; padding: 4px 2px 12px; }
+.sleeve { position: relative; border-radius: 14px; overflow: hidden; border: 1px solid #3A3348; background: linear-gradient(135deg, #2A2433 0%, #1C1824 55%); padding: 22px 18px 18px; margin-bottom: 14px; }
+.vinyl { position: absolute; right: -70px; top: -70px; width: 190px; height: 190px; border-radius: 50%; background: repeating-radial-gradient(circle at center, #0B0910 0 2px, #17131E 2px 4px); border: 2px solid var(--accent); opacity: .85; animation: spin 9s linear infinite; }
+.vinyl::after { content: ""; position: absolute; inset: 38%; border-radius: 50%; background: var(--accent); opacity: .9; }
+.eyebrow { font-family: 'Space Mono', monospace; font-size: 11px; color: var(--accent); letter-spacing: 2px; text-transform: uppercase; position: relative; }
+h2 { font-family: 'Archivo Black', sans-serif; font-size: 24px; margin: 6px 0 2px; line-height: 1.15; max-width: 78%; position: relative; }
+.artist { font-size: 15px; color: #C9C2D4; margin-bottom: 14px; position: relative; }
+.artist span { font-family: 'Space Mono', monospace; font-size: 12px; color: #8A8296; }
+.controls { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; position: relative; }
+.markall { padding: 8px 14px; border-radius: 999px; font-weight: 600; font-size: 13px; border: 1.5px solid var(--accent); background: transparent; color: var(--accent); }
+.markall.full { background: var(--accent); color: #131017; }
+.count { font-family: 'Space Mono', monospace; font-size: 12px; color: #9B93A8; }
+.stars { margin-top: 12px; display: flex; gap: 4px; align-items: center; position: relative; }
+.star { background: none; border: none; font-size: 22px; padding: 2px; color: #3A3348; transition: color .1s; }
+.star.on { color: var(--accent); }
+.ratelabel { font-family: 'Space Mono', monospace; font-size: 11px; color: #8A8296; margin-left: 6px; }
+.sleeve textarea { margin-top: 12px; position: relative; }
+.trow { display: flex; align-items: center; gap: 10px; padding: 10px 2px; }
+.tbtn { flex: 1; display: flex; align-items: baseline; gap: 10px; background: none; border: none; color: inherit; text-align: left; padding: 0; }
+.tnum { font-family: 'Space Mono', monospace; font-size: 11px; color: #6B6478; min-width: 20px; }
+.tname { font-size: 14.5px; font-weight: 500; color: #C9C2D4; }
+.tname.done { color: #EDE8DC; }
+.ttags { font-family: 'Space Mono', monospace; font-size: 10px; color: var(--accent); margin-left: 8px; }
+.caret { margin-left: auto; color: #6B6478; font-size: 12px; transition: transform .15s; }
+.caret.open { transform: rotate(180deg); }
+.expand { padding: 2px 2px 14px 36px; }
+.vibes { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 10px; }
+.vpill { padding: 5px 11px; border-radius: 999px; font-size: 12px; font-weight: 600; border: 1.5px solid #3A3348; background: transparent; color: #B8B0C4; transition: all .12s ease; }
+.vpill.on { border-color: var(--accent); background: var(--accent); color: #131017; }
+.expand textarea { background: #1C1824; border-radius: 8px; padding: 8px 10px; font-size: 13px; }
+.srate { display: flex; flex-wrap: wrap; align-items: center; gap: 3px; margin-bottom: 6px; }
+.srate .lab { font-family: 'Space Mono', monospace; font-size: 10px; color: #6B6478; margin-right: 4px; text-transform: uppercase; letter-spacing: 1px; }
+.sdot { width: 24px; height: 24px; border-radius: 6px; border: 1.5px solid #3A3348; background: transparent; color: #8A8296; font-family: 'Space Mono', monospace; font-size: 11px; font-weight: 700; display: inline-flex; align-items: center; justify-content: center; transition: all .1s ease; padding: 0; }
+.sdot.on { border-color: var(--accent); background: var(--accent); color: #131017; }
+.sscore { font-family: 'Space Mono', monospace; font-size: 11px; color: var(--accent); margin-left: 6px; }
+.section-lab { font-family: 'Space Mono', monospace; font-size: 10px; color: #6B6478; text-transform: uppercase; letter-spacing: 1px; margin: 8px 0 5px; }
+.spill { padding: 5px 11px; border-radius: 8px; font-size: 12px; font-weight: 600; border: 1.5px solid #3A3348; background: transparent; color: #B8B0C4; transition: all .12s ease; }
+.spill.on { border-color: #6FCF97; background: #6FCF97; color: #131017; }
+.aflags { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; position: relative; }
+.prod-input { margin-top: 10px; position: relative; width: 100%; background: #131017AA; border: 1px solid #332C40; border-radius: 10px; padding: 10px 12px; color: #EDE8DC; font-size: 14px; font-family: 'Archivo', sans-serif; }
+.prod-input:focus { outline: 2px solid var(--accent); outline-offset: 2px; }
+.prod-badge { display: inline-block; margin-left: 8px; margin-top: 4px; padding: 2px 8px; border-radius: 6px; border: 1px solid #4A4258; background: color-mix(in srgb, var(--accent) 12%, transparent); color: var(--accent); font-family: 'Space Mono', monospace; font-size: 11px; font-weight: 700; cursor: pointer; vertical-align: middle; }
+.prod-badge:hover { background: color-mix(in srgb, var(--accent) 24%, transparent); }
+.aflag { display: inline-flex; align-items: center; gap: 6px; padding: 7px 13px; border-radius: 999px; font-weight: 600; font-size: 13px; border: 1.5px solid #3A3348; background: transparent; color: #B8B0C4; transition: all .12s ease; }
+.aflag.on { border-color: var(--accent); background: color-mix(in srgb, var(--accent) 16%, transparent); color: var(--accent); }
+.aflag .ic { font-size: 14px; }
+.foot { font-family: 'Space Mono', monospace; font-size: 11px; color: #5C5568; text-align: center; margin-top: 28px; line-height: 1.7; }
+.topnav { display: flex; gap: 6px; overflow-x: auto; padding: 10px 16px 0; scrollbar-width: none; }
+.topnav::-webkit-scrollbar { display: none; }
+.tnav { flex: 0 0 auto; padding: 7px 13px; border-radius: 999px; border: 1.5px solid #332C40; background: transparent; color: #B8B0C4; font-family: 'Space Mono', monospace; font-size: 11px; letter-spacing: 1px; text-transform: uppercase; transition: all .15s ease; }
+.tnav.on { border-color: #EDE8DC; color: #EDE8DC; background: #241F2E; }
+.hub-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; padding: 8px 0 4px; }
+.hub-card { border: 1px solid #2A2433; border-radius: 14px; padding: 16px 14px; background: linear-gradient(135deg, #1C1824 0%, #17131E 100%); text-align: left; color: inherit; cursor: pointer; transition: border-color .15s ease; }
+.hub-card:hover { border-color: var(--accent); }
+.hub-card h3 { font-family: 'Archivo Black', sans-serif; font-size: 15px; margin-bottom: 4px; }
+.hub-card p { font-size: 12px; color: #9B93A8; line-height: 1.4; }
+.hub-card .big { font-family: 'Space Mono', monospace; font-size: 22px; color: var(--accent); display: block; margin-top: 8px; }
+.hub-full { grid-column: 1 / -1; }
+.dprog { display: flex; flex-direction: column; gap: 9px; padding: 4px 2px 12px; }
+.dprow { display: flex; align-items: center; gap: 10px; }
+.dprow .lab { font-family: 'Space Mono', monospace; font-size: 11px; color: #9B93A8; min-width: 42px; }
+.dpbar { flex: 1; height: 7px; border-radius: 4px; background: #241F2E; overflow: hidden; cursor: pointer; }
+.dpbar > div { height: 100%; background: var(--accent); transition: width .4s ease; }
+.dprow .cnt { font-family: 'Space Mono', monospace; font-size: 10.5px; color: #6B6478; min-width: 40px; text-align: right; }
+.sect-title { font-family: 'Space Mono', monospace; font-size: 11px; letter-spacing: 2px; text-transform: uppercase; color: var(--accent); padding: 16px 2px 8px; }
+.vibe-head { display: inline-flex; align-items: center; gap: 8px; padding: 14px 2px 8px; }
+.vibe-chip { padding: 5px 13px; border-radius: 999px; font-size: 13px; font-weight: 700; border: 1.5px solid var(--accent); background: var(--accent); color: #131017; }
+.vibe-count { font-family: 'Space Mono', monospace; font-size: 11px; color: #8A8296; }
+.song-row { display: flex; align-items: baseline; gap: 10px; padding: 9px 2px; border-bottom: 1px solid #241F2E; cursor: pointer; }
+.song-row .sng { font-size: 14px; color: #EDE8DC; }
+.song-row .alb { font-size: 12px; color: #9B93A8; }
+.song-row .gtag { font-family: 'Space Mono', monospace; font-size: 9.5px; color: var(--accent); margin-left: auto; white-space: nowrap; }
+.star-row { display: flex; align-items: center; gap: 10px; padding: 10px 2px; border-bottom: 1px solid #241F2E; cursor: pointer; }
+.star-row .stars-mini { color: var(--accent); font-size: 13px; min-width: 74px; }
+.empty-note { font-size: 13px; color: #8A8296; padding: 24px 8px; text-align: center; line-height: 1.6; }
+</style>
+</head>
+<body>
+<div id="errbanner"></div>
+<header>
+  <div class="hrow">
+    <h1>THE CANON</h1>
+    <span class="status" id="status"></span>
+  </div>
+  <p class="sub">25 essentials per genre, per decade — 900 records. Work the crate.</p>
+  <div class="meter"><div id="meterFill" style="width:0%"></div></div>
+</header>
+<nav class="topnav" id="topNav"></nav>
+<nav id="genreNav"></nav>
+<nav class="decades" id="decadeNav"></nav>
+<main id="main"></main>
+
+<script>
+window.onerror = function(msg, src, line){
+  var b = document.getElementById("errbanner");
+  if(b){ b.style.display = "block"; b.textContent = "App error: " + msg + " (line " + line + ")"; }
+};
+
+var RAW = {"rock|1970s":[["Led Zeppelin","Led Zeppelin IV",1971],["The Who","Who's Next",1971],["The Rolling Stones","Sticky Fingers",1971],["The Rolling Stones","Exile on Main St.",1972],["David Bowie","The Rise and Fall of Ziggy Stardust and the Spiders from Mars",1972],["Led Zeppelin","Houses of the Holy",1973],["Led Zeppelin","Physical Graffiti",1975],["The Who","Quadrophenia",1973],["Paul McCartney and Wings","Band on the Run",1973],["Bruce Springsteen","Born to Run",1975],["Queen","A Night at the Opera",1975],["Boston","Boston",1976],["Eagles","Hotel California",1976],["Fleetwood Mac","Rumours",1977],["Queen","News of the World",1977],["Billy Joel","The Stranger",1977],["Van Halen","Van Halen",1978],["The Rolling Stones","Some Girls",1978],["Bruce Springsteen","Darkness on the Edge of Town",1978],["Cheap Trick","Heaven Tonight",1978],["AC/DC","Highway to Hell",1979],["Pink Floyd","The Wall",1979],["Supertramp","Breakfast in America",1979],["The Clash","London Calling",1979],["Ramones","Ramones",1976]],"rock|1980s":[["AC/DC","Back in Black",1980],["Bruce Springsteen","The River",1980],["Journey","Escape",1981],["Def Leppard","Pyromania",1983],["The Police","Synchronicity",1983],["David Bowie","Let's Dance",1983],["Bruce Springsteen","Born in the U.S.A.",1984],["Bryan Adams","Reckless",1984],["Dire Straits","Brothers in Arms",1985],["Bon Jovi","Slippery When Wet",1986],["Van Halen","1984",1984],["Peter Gabriel","So",1986],["Paul Simon","Graceland",1986],["U2","The Joshua Tree",1987],["Guns N' Roses","Appetite for Destruction",1987],["Def Leppard","Hysteria",1987],["INXS","Kick",1987],["R.E.M.","Document",1987],["Pixies","Surfer Rosa",1988],["Sonic Youth","Daydream Nation",1988],["Pixies","Doolittle",1989],["Tom Petty","Full Moon Fever",1989],["Lou Reed","New York",1989],["Talking Heads","Speaking in Tongues",1983],["Living Colour","Vivid",1988]],"rock|1990s":[["Nirvana","Nevermind",1991],["Nirvana","In Utero",1993],["Pearl Jam","Ten",1991],["Soundgarden","Superunknown",1994],["The Smashing Pumpkins","Siamese Dream",1993],["The Smashing Pumpkins","Mellon Collie and the Infinite Sadness",1995],["Radiohead","The Bends",1995],["U2","Achtung Baby",1991],["R.E.M.","Automatic for the People",1992],["Weezer","Weezer (Blue Album)",1994],["Oasis","Definitely Maybe",1994],["Oasis","(What's the Story) Morning Glory?",1995],["Blur","Parklife",1994],["Pulp","Different Class",1995],["Rage Against the Machine","Rage Against the Machine",1992],["Stone Temple Pilots","Purple",1994],["Hole","Live Through This",1994],["Beck","Odelay",1996],["Foo Fighters","The Colour and the Shape",1997],["Green Day","Dookie",1994],["Red Hot Chili Peppers","Blood Sugar Sex Magik",1991],["Pavement","Slanted and Enchanted",1992],["Neutral Milk Hotel","In the Aeroplane Over the Sea",1998],["My Bloody Valentine","Loveless",1991],["Jeff Buckley","Grace",1994]],"rock|2000s":[["The Strokes","Is This It",2001],["The White Stripes","Elephant",2003],["Radiohead","In Rainbows",2007],["Arcade Fire","Funeral",2004],["Wilco","Yankee Hotel Foxtrot",2002],["Queens of the Stone Age","Songs for the Deaf",2002],["The Black Keys","Rubber Factory",2004],["Kings of Leon","Youth & Young Manhood",2003],["The Killers","Hot Fuss",2004],["Arctic Monkeys","Whatever People Say I Am, That's What I'm Not",2006],["Muse","Black Holes and Revelations",2006],["Coldplay","A Rush of Blood to the Head",2002],["Green Day","American Idiot",2004],["Linkin Park","Hybrid Theory",2000],["Modest Mouse","The Moon & Antarctica",2000],["The Libertines","Up the Bracket",2002],["Spoon","Kill the Moonlight",2002],["The National","Boxer",2007],["Sufjan Stevens","Illinois",2005],["Death Cab for Cutie","Transatlanticism",2003],["My Chemical Romance","The Black Parade",2006],["Vampire Weekend","Vampire Weekend",2008],["MGMT","Oracular Spectacular",2007],["Fleet Foxes","Fleet Foxes",2008],["The xx","xx",2009]],"rock|2010s":[["Tame Impala","Currents",2015],["Tame Impala","Lonerism",2012],["Arctic Monkeys","AM",2013],["David Bowie","Blackstar",2016],["Queens of the Stone Age","...Like Clockwork",2013],["Jack White","Blunderbuss",2012],["Foals","Holy Fire",2013],["The Black Keys","El Camino",2011],["The War on Drugs","Lost in the Dream",2014],["St. Vincent","St. Vincent",2014],["Courtney Barnett","Sometimes I Sit and Think, and Sometimes I Just Sit",2015],["King Gizzard & the Lizard Wizard","Nonagon Infinity",2016],["Alabama Shakes","Sound & Color",2015],["Royal Blood","Royal Blood",2014],["Vampire Weekend","Modern Vampires of the City",2013],["Arcade Fire","The Suburbs",2010],["Radiohead","A Moon Shaped Pool",2016],["Beach House","Bloom",2012],["Deerhunter","Halcyon Digest",2010],["The National","High Violet",2010],["Bon Iver","Bon Iver, Bon Iver",2011],["Japandroids","Celebration Rock",2012],["Cloud Nothings","Attack on Memory",2012],["Car Seat Headrest","Teens of Denial",2016],["Mitski","Be the Cowboy",2018]],"rock|2020s":[["Wet Leg","Wet Leg",2022],["The Strokes","The New Abnormal",2020],["Fiona Apple","Fetch the Bolt Cutters",2020],["Phoebe Bridgers","Punisher",2020],["boygenius","The Record",2023],["Big Thief","Dragon New Warm Mountain I Believe in You",2022],["The War on Drugs","I Don't Live Here Anymore",2021],["The Killers","Pressure Machine",2021],["Foo Fighters","But Here We Are",2023],["Arctic Monkeys","The Car",2022],["Tame Impala","The Slow Rush",2020],["Olivia Rodrigo","GUTS",2023],["Måneskin","Rush!",2023],["Greta Van Fleet","The Battle at Garden's Gate",2021],["Sam Fender","Seventeen Going Under",2021],["Wolf Alice","Blue Weekend",2021],["Wednesday","Rat Saw God",2023],["MJ Lenderman","Manning Fireworks",2024],["Waxahatchee","Saint Cloud",2020],["Alvvays","Blue Rev",2022],["Beach House","Once Twice Melody",2022],["The Smile","A Light for Attracting Attention",2022],["Paramore","This Is Why",2023],["The Rolling Stones","Hackney Diamonds",2023],["Pearl Jam","Dark Matter",2024]],"metal|1970s":[["Black Sabbath","Paranoid",1970],["Black Sabbath","Black Sabbath",1970],["Black Sabbath","Master of Reality",1971],["Black Sabbath","Vol. 4",1972],["Black Sabbath","Sabbath Bloody Sabbath",1973],["Black Sabbath","Sabotage",1975],["Deep Purple","Deep Purple in Rock",1970],["Deep Purple","Machine Head",1972],["Deep Purple","Burn",1974],["Judas Priest","Sad Wings of Destiny",1976],["Judas Priest","Sin After Sin",1977],["Judas Priest","Stained Class",1978],["Judas Priest","Killing Machine",1978],["Rainbow","Rising",1976],["Rainbow","Ritchie Blackmore's Rainbow",1975],["Rainbow","Long Live Rock 'n' Roll",1978],["Motörhead","Motörhead",1977],["Motörhead","Overkill",1979],["Motörhead","Bomber",1979],["Scorpions","Lovedrive",1979],["Blue Öyster Cult","Secret Treaties",1974],["Blue Öyster Cult","Tyranny and Mutation",1973],["Alice Cooper","Billion Dollar Babies",1973],["Kiss","Destroyer",1976],["Budgie","Never Turn Your Back on a Friend",1973]],"metal|1980s":[["Judas Priest","British Steel",1980],["Motörhead","Ace of Spades",1980],["Black Sabbath","Heaven and Hell",1980],["Ozzy Osbourne","Blizzard of Ozz",1980],["Iron Maiden","Iron Maiden",1980],["Iron Maiden","Killers",1981],["Iron Maiden","The Number of the Beast",1982],["Judas Priest","Screaming for Vengeance",1982],["Metallica","Kill 'Em All",1983],["Dio","Holy Diver",1983],["Mercyful Fate","Melissa",1983],["Metallica","Ride the Lightning",1984],["Iron Maiden","Powerslave",1984],["Judas Priest","Defenders of the Faith",1984],["Exodus","Bonded by Blood",1985],["Metallica","Master of Puppets",1986],["Slayer","Reign in Blood",1986],["Megadeth","Peace Sells... but Who's Buying?",1986],["Anthrax","Among the Living",1987],["Metallica","...And Justice for All",1988],["Slayer","South of Heaven",1988],["Iron Maiden","Seventh Son of a Seventh Son",1988],["Queensrÿche","Operation: Mindcrime",1988],["Sepultura","Beneath the Remains",1989],["Morbid Angel","Altars of Madness",1989]],"metal|1990s":[["Megadeth","Rust in Peace",1990],["Pantera","Cowboys from Hell",1990],["Slayer","Seasons in the Abyss",1990],["Judas Priest","Painkiller",1990],["Metallica","Metallica (The Black Album)",1991],["Sepultura","Arise",1991],["Death","Human",1991],["Alice in Chains","Dirt",1992],["Pantera","Vulgar Display of Power",1992],["Megadeth","Countdown to Extinction",1992],["Sepultura","Chaos A.D.",1993],["Morbid Angel","Covenant",1993],["Carcass","Heartwork",1993],["Pantera","Far Beyond Driven",1994],["Machine Head","Burn My Eyes",1994],["Korn","Korn",1994],["Fear Factory","Demanufacture",1995],["Death","Symbolic",1995],["At the Gates","Slaughter of the Soul",1995],["Mayhem","De Mysteriis Dom Sathanas",1994],["Emperor","In the Nightside Eclipse",1994],["Sepultura","Roots",1996],["Tool","Ænima",1996],["Deftones","Around the Fur",1997],["System of a Down","System of a Down",1998]],"metal|2000s":[["Deftones","White Pony",2000],["Slipknot","Iowa",2001],["System of a Down","Toxicity",2001],["Opeth","Blackwater Park",2001],["Converge","Jane Doe",2001],["Mastodon","Remission",2002],["Isis","Oceanic",2002],["Agalloch","The Mantle",2002],["Killswitch Engage","Alive or Just Breathing",2002],["Opeth","Deliverance",2002],["Mastodon","Leviathan",2004],["The Dillinger Escape Plan","Miss Machine",2004],["Lamb of God","Ashes of the Wake",2004],["Killswitch Engage","The End of Heartache",2004],["Gojira","From Mars to Sirius",2005],["Opeth","Ghost Reveries",2005],["Trivium","Ascendancy",2005],["Mastodon","Blood Mountain",2006],["Machine Head","The Blackening",2007],["Between the Buried and Me","Colors",2007],["Meshuggah","obZen",2008],["Gojira","The Way of All Flesh",2008],["Mastodon","Crack the Skye",2009],["In Flames","Clayman",2000],["Avenged Sevenfold","City of Evil",2005]],"metal|2010s":[["Meshuggah","Koloss",2012],["Gojira","L'Enfant Sauvage",2012],["Gojira","Magma",2016],["Mastodon","The Hunter",2011],["Mastodon","Emperor of Sand",2017],["Deafheaven","Sunbather",2013],["Ghost","Meliora",2015],["Ghost","Prequelle",2018],["Behemoth","The Satanist",2014],["Periphery","Periphery II: This Time It's Personal",2012],["Animals as Leaders","The Joy of Motion",2014],["TesseracT","Altered State",2013],["Bring Me the Horizon","Sempiternal",2013],["Architects","All Our Gods Have Abandoned Us",2016],["Power Trip","Nightmare Logic",2017],["Code Orange","Forever",2017],["Converge","All We Love We Leave Behind",2012],["Pallbearer","Foundations of Burden",2014],["YOB","Our Raw Heart",2018],["Sleep","The Sciences",2018],["Judas Priest","Firepower",2018],["Iron Maiden","The Book of Souls",2015],["Metallica","Hardwired... to Self-Destruct",2016],["Rivers of Nihil","Where Owls Know My Name",2018],["Zeal & Ardor","Stranger Fruit",2018]],"metal|2020s":[["Gojira","Fortitude",2021],["Deftones","Ohms",2020],["Ghost","Impera",2022],["Mastodon","Hushed and Grim",2021],["Spiritbox","Eternal Blue",2021],["Lorna Shore","Pain Remains",2022],["Sleep Token","Take Me Back to Eden",2023],["Architects","For Those That Wish to Exist",2021],["Blood Incantation","Absolute Elsewhere",2024],["Judas Priest","Invincible Shield",2024],["Metallica","72 Seasons",2023],["Megadeth","The Sick, the Dying... and the Dead!",2022],["Lamb of God","Lamb of God",2020],["Code Orange","Underneath",2020],["Turnstile","Glow On",2021],["Zeal & Ardor","Zeal & Ardor",2022],["Chat Pile","God's Country",2022],["Rolo Tomassi","Where Myth Becomes Memory",2022],["Bring Me the Horizon","Post Human: Survival Horror",2020],["Knocked Loose","You Won't Go Before You're Supposed To",2024],["Paradise Lost","Obsidian",2020],["Jinjer","Wallflowers",2021],["Undeath","It's Time... to Rise from the Grave",2022],["Amon Amarth","The Great Heathen Army",2022],["Employed to Serve","Conquering",2021]],"prog|1970s":[["Yes","Close to the Edge",1972],["Yes","Fragile",1971],["Yes","The Yes Album",1971],["Yes","Relayer",1974],["Jethro Tull","Thick as a Brick",1972],["Jethro Tull","Aqualung",1971],["Pink Floyd","The Dark Side of the Moon",1973],["Pink Floyd","Wish You Were Here",1975],["Pink Floyd","Animals",1977],["Pink Floyd","Meddle",1971],["Genesis","Selling England by the Pound",1973],["Genesis","Foxtrot",1972],["Genesis","The Lamb Lies Down on Broadway",1974],["King Crimson","Larks' Tongues in Aspic",1973],["King Crimson","Red",1974],["Emerson, Lake & Palmer","Tarkus",1971],["Emerson, Lake & Palmer","Brain Salad Surgery",1973],["Rush","2112",1976],["Rush","A Farewell to Kings",1977],["Rush","Hemispheres",1978],["Gentle Giant","Free Hand",1975],["Gentle Giant","Octopus",1972],["Camel","The Snow Goose",1975],["Focus","Moving Waves",1971],["Van der Graaf Generator","Godbluff",1975]],"prog|1980s":[["Rush","Permanent Waves",1980],["Rush","Moving Pictures",1981],["Rush","Signals",1982],["Rush","Grace Under Pressure",1984],["Rush","Power Windows",1985],["Rush","Hold Your Fire",1987],["King Crimson","Discipline",1981],["King Crimson","Beat",1982],["King Crimson","Three of a Perfect Pair",1984],["Marillion","Script for a Jester's Tear",1983],["Marillion","Fugazi",1984],["Marillion","Misplaced Childhood",1985],["Marillion","Clutching at Straws",1987],["Yes","Drama",1980],["Yes","90125",1983],["Genesis","Duke",1980],["Genesis","Genesis",1983],["Kate Bush","The Dreaming",1982],["Kate Bush","Hounds of Love",1985],["Talk Talk","Spirit of Eden",1988],["Pink Floyd","The Final Cut",1983],["Pink Floyd","A Momentary Lapse of Reason",1987],["IQ","The Wake",1985],["Saga","Worlds Apart",1982],["Asia","Asia",1982]],"prog|1990s":[["Dream Theater","Images and Words",1992],["Dream Theater","Awake",1994],["Dream Theater","Metropolis Pt. 2: Scenes from a Memory",1999],["Pink Floyd","The Division Bell",1994],["Marillion","Brave",1994],["Marillion","Afraid of Sunlight",1995],["Porcupine Tree","The Sky Moves Sideways",1995],["Porcupine Tree","Signify",1996],["Porcupine Tree","Stupid Dream",1999],["Spock's Beard","The Light",1995],["The Flower Kings","Stardust We Are",1997],["Änglagård","Hybris",1992],["Anekdoten","Vemod",1993],["King Crimson","Thrak",1995],["Rush","Counterparts",1993],["Radiohead","OK Computer",1997],["Fates Warning","Parallels",1991],["Queensrÿche","Empire",1990],["Symphony X","The Divine Wings of Tragedy",1997],["Pain of Salvation","One Hour by the Concrete Lake",1998],["Liquid Tension Experiment","Liquid Tension Experiment",1998],["Mike Oldfield","Tubular Bells II",1992],["Ozric Tentacles","Jurassic Shift",1993],["Camel","Harbour of Tears",1996],["Echolyn","As the World",1995]],"prog|2000s":[["Tool","Lateralus",2001],["Tool","10,000 Days",2006],["Porcupine Tree","In Absentia",2002],["Porcupine Tree","Deadwing",2005],["Porcupine Tree","Fear of a Blank Planet",2007],["Opeth","Damnation",2003],["Opeth","Watershed",2008],["Dream Theater","Six Degrees of Inner Turbulence",2002],["Dream Theater","Octavarium",2005],["The Mars Volta","De-Loused in the Comatorium",2003],["The Mars Volta","Frances the Mute",2005],["Coheed and Cambria","In Keeping Secrets of Silent Earth: 3",2003],["Muse","Absolution",2003],["Radiohead","Kid A",2000],["Riverside","Second Life Syndrome",2005],["Pain of Salvation","The Perfect Element, Part I",2000],["Pain of Salvation","Remedy Lane",2002],["Transatlantic","SMPT:e",2000],["Spock's Beard","Snow",2002],["Oceansize","Effloresce",2003],["Frost*","Milliontown",2006],["Ayreon","The Human Equation",2004],["Anathema","A Natural Disaster",2003],["Green Carnation","Light of Day, Day of Darkness",2001],["Beardfish","Sleeping in Traffic: Part One",2007]],"prog|2010s":[["Steven Wilson","The Raven That Refused to Sing (and Other Stories)",2013],["Steven Wilson","Hand. Cannot. Erase.",2015],["Haken","The Mountain",2013],["Haken","Vector",2018],["Leprous","Coal",2013],["Leprous","The Congregation",2015],["Riverside","Love, Fear and the Time Machine",2015],["Anathema","Weather Systems",2012],["Opeth","Heritage",2011],["Opeth","Pale Communion",2014],["Dream Theater","A Dramatic Turn of Events",2011],["Rush","Clockwork Angels",2012],["Tool","Fear Inoculum",2019],["Big Big Train","English Electric Part One",2012],["Devin Townsend","Empath",2019],["Caligula's Horse","In Contact",2017],["Karnivool","Asymmetry",2013],["Thank You Scientist","Stranger Heads Prevail",2016],["Marillion","F E A R",2016],["iamthemorning","Lighthouse",2016],["The Pineapple Thief","Dissolution",2018],["Bent Knee","Say So",2016],["Ne Obliviscaris","Portal of I",2012],["Soen","Lykaia",2017],["King Gizzard & the Lizard Wizard","Polygondwanaland",2017]],"prog|2020s":[["Porcupine Tree","Closure/Continuation",2022],["Steven Wilson","The Harmony Codex",2023],["Dream Theater","A View from the Top of the World",2021],["Haken","Fauna",2023],["Leprous","Aphelion",2021],["Leprous","Melodies of Atonement",2024],["Opeth","The Last Will and Testament",2024],["Riverside","ID.Entity",2023],["Big Big Train","Common Ground",2021],["Transatlantic","The Absolute Universe: Forevermore",2021],["Frost*","Day and Age",2021],["The Pineapple Thief","Versions of the Truth",2020],["Pain of Salvation","Panther",2020],["Caligula's Horse","Rise Radiant",2020],["VOLA","Witness",2021],["Wobbler","Dwellers of the Deep",2020],["Motorpsycho","The All Is One",2020],["King Gizzard & the Lizard Wizard","PetroDragonic Apocalypse",2023],["Coheed and Cambria","Vaxis II: A Window of the Waking Mind",2022],["The Mars Volta","The Mars Volta",2022],["Gazpacho","Fireworker",2020],["Jethro Tull","The Zealot Gene",2022],["Marillion","An Hour Before It's Dark",2022],["Soen","Imperial",2021],["Airbag","A Day at the Beach",2020]],"rnb|1970s":[["Marvin Gaye","What's Going On",1971],["Stevie Wonder","Innervisions",1973],["Stevie Wonder","Talking Book",1972],["Stevie Wonder","Songs in the Key of Life",1976],["Curtis Mayfield","Superfly",1972],["Curtis Mayfield","Curtis",1970],["Sly and the Family Stone","There's a Riot Goin' On",1971],["Sly and the Family Stone","Fresh",1973],["Al Green","Call Me",1973],["Al Green","Let's Stay Together",1972],["Aretha Franklin","Young, Gifted and Black",1972],["Aretha Franklin","Amazing Grace",1972],["Donny Hathaway","Everything Is Everything",1970],["Roberta Flack","Killing Me Softly",1973],["Bill Withers","Still Bill",1972],["Earth, Wind & Fire","That's the Way of the World",1975],["Parliament","Mothership Connection",1975],["Funkadelic","Maggot Brain",1971],["Funkadelic","One Nation Under a Groove",1978],["The O'Jays","Back Stabbers",1972],["The Isley Brothers","3 + 3",1973],["Chic","C'est Chic",1978],["Michael Jackson","Off the Wall",1979],["Minnie Riperton","Perfect Angel",1974],["Rufus and Chaka Khan","Rags to Rufus",1974]],"rnb|1980s":[["Michael Jackson","Thriller",1982],["Michael Jackson","Bad",1987],["Prince","1999",1982],["Prince and the Revolution","Purple Rain",1984],["Prince","Sign o' the Times",1987],["Prince","Dirty Mind",1980],["Luther Vandross","Never Too Much",1981],["Whitney Houston","Whitney Houston",1985],["Sade","Diamond Life",1984],["Anita Baker","Rapture",1986],["Janet Jackson","Control",1986],["Janet Jackson","Rhythm Nation 1814",1989],["Rick James","Street Songs",1981],["The Gap Band","Gap Band IV",1982],["Marvin Gaye","Midnight Love",1982],["Stevie Wonder","Hotter Than July",1980],["Lionel Richie","Can't Slow Down",1983],["DeBarge","In a Special Way",1983],["New Edition","Heart Break",1988],["Bobby Brown","Don't Be Cruel",1988],["Keith Sweat","Make It Last Forever",1987],["Guy","Guy",1988],["Soul II Soul","Club Classics Vol. One",1989],["Chaka Khan","I Feel for You",1984],["Cameo","Word Up!",1986]],"rnb|1990s":[["D'Angelo","Brown Sugar",1995],["Erykah Badu","Baduizm",1997],["Lauryn Hill","The Miseducation of Lauryn Hill",1998],["Mary J. Blige","My Life",1994],["Mary J. Blige","What's the 411?",1992],["TLC","CrazySexyCool",1994],["Aaliyah","One in a Million",1996],["Janet Jackson","janet.",1993],["Janet Jackson","The Velvet Rope",1997],["Maxwell","Maxwell's Urban Hang Suite",1996],["Toni Braxton","Secrets",1996],["Boyz II Men","II",1994],["Jodeci","Forever My Lady",1991],["SWV","It's About Time",1992],["En Vogue","Funky Divas",1992],["Usher","My Way",1997],["Brandy","Never Say Never",1998],["Mariah Carey","Daydream",1995],["Ginuwine","Ginuwine... the Bachelor",1996],["Missy Elliott","Supa Dupa Fly",1997],["Faith Evans","Faith",1995],["Tony! Toni! Toné!","Sons of Soul",1993],["Sade","Love Deluxe",1992],["Blackstreet","Another Level",1996],["Groove Theory","Groove Theory",1995]],"rnb|2000s":[["D'Angelo","Voodoo",2000],["Erykah Badu","Mama's Gun",2000],["Erykah Badu","New Amerykah Part One (4th World War)",2008],["Alicia Keys","Songs in A Minor",2001],["Alicia Keys","The Diary of Alicia Keys",2003],["Usher","Confessions",2004],["Beyoncé","Dangerously in Love",2003],["Beyoncé","B'Day",2006],["Aaliyah","Aaliyah",2001],["Justin Timberlake","Justified",2002],["Justin Timberlake","FutureSex/LoveSounds",2006],["Mary J. Blige","No More Drama",2001],["Jill Scott","Who Is Jill Scott? Words and Sounds Vol. 1",2000],["India.Arie","Acoustic Soul",2001],["Musiq Soulchild","Aijuswanaseing",2000],["Maxwell","BLACKsummers'night",2009],["Raphael Saadiq","The Way I See It",2008],["Anthony Hamilton","Comin' from Where I'm From",2003],["John Legend","Get Lifted",2004],["Amy Winehouse","Back to Black",2006],["Ne-Yo","Year of the Gentleman",2008],["Rihanna","Good Girl Gone Bad",2007],["The-Dream","Love vs. Money",2009],["Keyshia Cole","The Way It Is",2005],["Sade","Lovers Rock",2000]],"rnb|2010s":[["Frank Ocean","Channel Orange",2012],["Frank Ocean","Blonde",2016],["The Weeknd","House of Balloons",2011],["Rihanna","Anti",2016],["Beyoncé","Beyoncé",2013],["Beyoncé","Lemonade",2016],["SZA","Ctrl",2017],["Solange","A Seat at the Table",2016],["Anderson .Paak","Malibu",2016],["Daniel Caesar","Freudian",2017],["Kaytranada","99.9%",2016],["Miguel","Kaleidoscope Dream",2012],["The Internet","Ego Death",2015],["Janelle Monáe","The ArchAndroid",2010],["Summer Walker","Over It",2019],["H.E.R.","H.E.R.",2017],["Bryson Tiller","Trapsoul",2015],["Blood Orange","Freetown Sound",2016],["Kali Uchis","Isolation",2018],["Ari Lennox","Shea Butter Baby",2019],["D'Angelo and the Vanguard","Black Messiah",2014],["Sampha","Process",2017],["Moses Sumney","Aromanticism",2017],["Khalid","American Teen",2017],["Tinashe","Aquarius",2014]],"rnb|2020s":[["Silk Sonic","An Evening with Silk Sonic",2021],["SZA","SOS",2022],["Beyoncé","Renaissance",2022],["Chloe x Halle","Ungodly Hour",2020],["Jazmine Sullivan","Heaux Tales",2021],["Snoh Aalegra","Temporary Highs in the Violet Skies",2021],["Giveon","Take Time",2020],["Brent Faiyaz","Wasteland",2022],["Summer Walker","Still Over It",2021],["Steve Lacy","Gemini Rights",2022],["The Weeknd","After Hours",2020],["Daniel Caesar","Never Enough",2023],["Kali Uchis","Red Moon in Venus",2023],["Victoria Monét","Jaguar II",2023],["Usher","Coming Home",2024],["Tems","Born in the Wild",2024],["FLO","Access All Areas",2024],["Ravyn Lenae","Bird's Eye",2024],["Cleo Sol","Mother",2021],["Sault","Untitled (Black Is)",2020],["Lucky Daye","Candydrip",2022],["H.E.R.","Back of My Mind",2021],["Normani","Dopamine",2024],["Ari Lennox","age/sex/location",2022],["Tyla","Tyla",2024]],"jazz|1970s":[["Miles Davis","Bitches Brew",1970],["Miles Davis","A Tribute to Jack Johnson",1971],["Miles Davis","On the Corner",1972],["Herbie Hancock","Head Hunters",1973],["Herbie Hancock","Thrust",1974],["Weather Report","Heavy Weather",1977],["Weather Report","Black Market",1976],["Return to Forever","Romantic Warrior",1976],["Return to Forever","Light as a Feather",1972],["Mahavishnu Orchestra","The Inner Mounting Flame",1971],["Mahavishnu Orchestra","Birds of Fire",1973],["Keith Jarrett","The Köln Concert",1975],["McCoy Tyner","Sahara",1972],["Pharoah Sanders","Thembi",1971],["Alice Coltrane","Journey in Satchidananda",1971],["Sun Ra","Space Is the Place",1973],["Ornette Coleman","Dancing in Your Head",1977],["Jaco Pastorius","Jaco Pastorius",1976],["Stanley Clarke","School Days",1976],["George Benson","Breezin'",1976],["Grover Washington Jr.","Mister Magic",1975],["Freddie Hubbard","Red Clay",1970],["Donald Byrd","Black Byrd",1973],["Gil Scott-Heron and Brian Jackson","Winter in America",1974],["Ahmad Jamal","The Awakening",1970]],"jazz|1980s":[["Wynton Marsalis","Black Codes (From the Underground)",1985],["Wynton Marsalis","Wynton Marsalis",1982],["Pat Metheny Group","Offramp",1982],["Pat Metheny Group","Still Life (Talking)",1987],["Pat Metheny Group","First Circle",1984],["Pat Metheny and Ornette Coleman","Song X",1986],["Keith Jarrett","Standards, Vol. 1",1983],["Miles Davis","Tutu",1986],["Miles Davis","The Man with the Horn",1981],["Miles Davis","Decoy",1984],["Herbie Hancock","Future Shock",1983],["Michael Brecker","Michael Brecker",1987],["Wayne Shorter","Atlantis",1985],["Art Blakey and the Jazz Messengers","Album of the Year",1981],["Branford Marsalis","Renaissance",1987],["Stanley Jordan","Magic Touch",1985],["Chick Corea Elektric Band","The Chick Corea Elektric Band",1986],["Chick Corea Akoustic Band","Chick Corea Akoustic Band",1989],["Jaco Pastorius","Word of Mouth",1981],["Weather Report","Procession",1983],["Grover Washington Jr.","Winelight",1980],["George Benson","Give Me the Night",1980],["Al Jarreau","Breakin' Away",1981],["Bob James and David Sanborn","Double Vision",1986],["Harry Connick Jr.","When Harry Met Sally...",1989]],"jazz|1990s":[["Buena Vista Social Club","Buena Vista Social Club",1997],["Joshua Redman","MoodSwing",1994],["Brad Mehldau","The Art of the Trio, Volume One",1997],["Roy Hargrove's Crisol","Habana",1997],["Diana Krall","When I Look in Your Eyes",1999],["Cassandra Wilson","New Moon Daughter",1995],["John Scofield","A Go Go",1998],["Medeski Martin & Wood","Combustication",1998],["Us3","Hand on the Torch",1993],["Guru","Jazzmatazz, Vol. 1",1993],["Herbie Hancock","The New Standard",1996],["Keith Jarrett","The Melody at Night, with You",1999],["Charlie Haden and Pat Metheny","Beyond the Missouri Sky",1997],["Pat Metheny Group","Secret Story",1992],["Wynton Marsalis","Blood on the Fields",1997],["Christian McBride","Gettin' to It",1995],["Kenny Garrett","Songbook",1997],["Bill Frisell","Have a Little Faith",1993],["John Zorn","Naked City",1990],["Joe Henderson","Lush Life",1992],["Harry Connick Jr.","We Are in Love",1990],["Tony Bennett","Perfectly Frank",1992],["Dr. John","Goin' Back to New Orleans",1992],["Marcus Miller","The Sun Don't Lie",1993],["Eddie Palmieri","Palmas",1994]],"jazz|2000s":[["Norah Jones","Come Away with Me",2002],["Norah Jones","Feels Like Home",2004],["The Bad Plus","These Are the Vistas",2003],["Esbjörn Svensson Trio","Seven Days of Falling",2003],["Brad Mehldau","Largo",2002],["Wayne Shorter Quartet","Alegría",2003],["Herbie Hancock","River: The Joni Letters",2007],["Robert Glasper","In My Element",2007],["The RH Factor","Hard Groove",2003],["Maria Schneider Orchestra","Concert in the Garden",2004],["Tord Gustavsen Trio","Changing Places",2003],["Brian Blade Fellowship","Season of Changes",2008],["Kurt Rosenwinkel","Heartcore",2003],["Madeleine Peyroux","Careless Love",2004],["Diana Krall","The Look of Love",2001],["Jamie Cullum","Twentysomething",2003],["Vijay Iyer Trio","Historicity",2009],["Jason Moran","Modernistic",2002],["Pat Metheny Group","The Way Up",2005],["Hiromi","Brain",2004],["John Scofield","Überjam",2002],["Terence Blanchard","A Tale of God's Will (A Requiem for Katrina)",2007],["Soulive","Doin' Something",2001],["Cassandra Wilson","Belly of the Sun",2002],["Tomasz Stańko Quartet","Soul of Things",2002]],"jazz|2010s":[["Snarky Puppy","We Like It Here",2014],["Kamasi Washington","The Epic",2015],["Robert Glasper Experiment","Black Radio",2012],["Thundercat","Drunk",2017],["The Comet Is Coming","Trust in the Lifeforce of the Deep Mystery",2019],["Sons of Kemet","Your Queen Is a Reptile",2018],["Ezra Collective","You Can't Steal My Joy",2019],["Yussef Kamaal","Black Focus",2016],["GoGo Penguin","v2.0",2014],["Christian Scott aTunde Adjuah","Stretch Music",2015],["Ambrose Akinmusire","When the Heart Emerges Glistening",2011],["Vijay Iyer Trio","Accelerando",2012],["Donny McCaslin","Beyond Now",2016],["Maria Schneider Orchestra","The Thompson Fields",2015],["Wayne Shorter","Emanon",2018],["Brad Mehldau","Finding Gabriel",2019],["Gregory Porter","Liquid Spirit",2013],["Cécile McLorin Salvant","For One to Love",2015],["Esperanza Spalding","Chamber Music Society",2010],["BadBadNotGood","IV",2016],["Flying Lotus","You're Dead!",2014],["Makaya McCraven","Universal Beings",2018],["Jaimie Branch","Fly or Die",2017],["Tigran Hamasyan","Mockroot",2015],["Hiatus Kaiyote","Choose Your Weapon",2015]],"jazz|2020s":[["Nubya Garcia","Source",2020],["Sons of Kemet","Black to the Future",2021],["Floating Points, Pharoah Sanders & the London Symphony Orchestra","Promises",2021],["Kamasi Washington","Fearless Movement",2024],["DOMi & JD Beck","NOT TiGHT",2022],["Makaya McCraven","In These Times",2022],["The Comet Is Coming","Hyper-Dimensional Expansion Beam",2022],["Ezra Collective","Where I'm Meant to Be",2022],["Yussef Dayes","Black Classical Music",2023],["André 3000","New Blue Sun",2023],["Nala Sinephro","Space 1.8",2021],["Cécile McLorin Salvant","Ghost Song",2022],["Samara Joy","Linger Awhile",2022],["Immanuel Wilkins","Omega",2020],["Mary Halvorson","Amaryllis",2022],["Vijay Iyer","Uneasy",2021],["Charles Lloyd","The Sky Will Still Be There Tomorrow",2024],["Ambrose Akinmusire","On the Tender Spot of Every Calloused Moment",2020],["Jaimie Branch","Fly or Die Fly or Die Fly or Die ((World War))",2023],["Alfa Mist","Bring Backs",2021],["Emma-Jean Thackray","Yellow",2021],["Moses Boyd","Dark Matter",2020],["Shabaka","Perceive Its Beauty, Acknowledge Its Grace",2024],["Kokoroko","Could We Be More",2022],["Julius Rodriguez","Let Sound Tell All",2022]],"postpunk|1970s":[["Joy Division","Unknown Pleasures",1979],["Television","Marquee Moon",1977],["Talking Heads","Talking Heads: 77",1977],["Talking Heads","More Songs About Buildings and Food",1978],["Talking Heads","Fear of Music",1979],["Wire","Pink Flag",1977],["Wire","Chairs Missing",1978],["Wire","154",1979],["Public Image Ltd","First Issue",1978],["Public Image Ltd","Metal Box",1979],["Gang of Four","Entertainment!",1979],["The Fall","Live at the Witch Trials",1979],["Siouxsie and the Banshees","The Scream",1978],["Devo","Q: Are We Not Men? A: We Are Devo!",1978],["Pere Ubu","The Modern Dance",1978],["Pere Ubu","Dub Housing",1978],["Suicide","Suicide",1977],["Magazine","Real Life",1978],["The Slits","Cut",1979],["XTC","Drums and Wires",1979],["The Pop Group","Y",1979],["Cabaret Voltaire","Mix-Up",1979],["This Heat","This Heat",1979],["The Cure","Three Imaginary Boys",1979],["The Raincoats","The Raincoats",1979]],"postpunk|1980s":[["Joy Division","Closer",1980],["Talking Heads","Remain in Light",1980],["The Cure","Seventeen Seconds",1980],["The Cure","Pornography",1982],["The Cure","Disintegration",1989],["Echo & the Bunnymen","Crocodiles",1980],["Echo & the Bunnymen","Ocean Rain",1984],["Bauhaus","In the Flat Field",1980],["Killing Joke","Killing Joke",1980],["The Sound","Jeopardy",1980],["New Order","Power, Corruption & Lies",1983],["The Smiths","The Queen Is Dead",1986],["Siouxsie and the Banshees","Juju",1981],["The Fall","Hex Enduction Hour",1982],["The Fall","This Nation's Saving Grace",1985],["The Birthday Party","Junkyard",1982],["Nick Cave and the Bad Seeds","From Her to Eternity",1984],["Swans","Children of God",1987],["Mission of Burma","Vs.",1982],["The Chameleons","Script of the Bridge",1983],["Cocteau Twins","Treasure",1984],["The Jesus and Mary Chain","Psychocandy",1985],["Gang of Four","Solid Gold",1981],["Orange Juice","You Can't Hide Your Love Forever",1982],["The Sisters of Mercy","First and Last and Always",1985]],"postpunk|1990s":[["Fugazi","Repeater",1990],["Fugazi","In on the Kill Taker",1993],["Fugazi","Red Medicine",1995],["Slint","Spiderland",1991],["The Jesus Lizard","Goat",1991],["The Jesus Lizard","Liar",1992],["Unwound","Repetition",1996],["Shellac","At Action Park",1994],["Drive Like Jehu","Yank Crimes",1994],["Jawbox","For Your Own Special Sweetheart",1994],["Girls Against Boys","Venus Luxure No. 1 Baby",1993],["Rodan","Rusty",1994],["Brainiac","Hissing Prigs in Static Couture",1996],["Elastica","Elastica",1995],["The Fall","Extricate",1990],["PJ Harvey","Rid of Me",1993],["Sleater-Kinney","Dig Me Out",1997],["Tortoise","Millions Now Living Will Never Die",1996],["Mogwai","Young Team",1997],["Stereolab","Emperor Tomato Ketchup",1996],["The Nation of Ulysses","13-Point Program to Destroy America",1991],["Refused","The Shape of Punk to Come",1998],["The Afghan Whigs","Gentlemen",1993],["Bikini Kill","Pussy Whipped",1993],["Blonde Redhead","Fake Can Be Just as Good",1997]],"postpunk|2000s":[["Interpol","Turn On the Bright Lights",2002],["Interpol","Antics",2004],["At the Drive-In","Relationship of Command",2000],["Franz Ferdinand","Franz Ferdinand",2004],["Bloc Party","Silent Alarm",2005],["Editors","The Back Room",2005],["The Rapture","Echoes",2003],["LCD Soundsystem","Sound of Silver",2007],["Liars","Drum's Not Dead",2006],["Yeah Yeah Yeahs","Fever to Tell",2003],["TV on the Radio","Return to Cookie Mountain",2006],["The Walkmen","Bows + Arrows",2004],["The Faint","Danse Macabre",2001],["Q and Not U","No Kill No Beep Beep",2000],["Fugazi","The Argument",2001],["Wire","Send",2003],["The Kills","Keep On Your Mean Side",2003],["The Futureheads","The Futureheads",2004],["Maxïmo Park","A Certain Trigger",2005],["Art Brut","Bang Bang Rock & Roll",2005],["mclusky","mclusky Do Dallas",2002],["The Horrors","Primary Colours",2009],["The Blood Brothers","...Burn, Piano Island, Burn",2003],["The Cribs","Men's Needs, Women's Needs, Whatever",2007],["Foals","Antidotes",2008]],"postpunk|2010s":[["Savages","Silence Yourself",2013],["Savages","Adore Life",2016],["Protomartyr","The Agent Intellect",2015],["Protomartyr","Relatives in Descent",2017],["Viet Cong","Viet Cong",2015],["Iceage","You're Nothing",2013],["Iceage","Beyondless",2018],["Ought","More Than Any Other Day",2014],["Parquet Courts","Light Up Gold",2012],["Parquet Courts","Wide Awake!",2018],["IDLES","Brutalism",2017],["IDLES","Joy as an Act of Resistance",2018],["Shame","Songs of Praise",2018],["Fontaines D.C.","Dogrel",2019],["The Murder Capital","When I Have Fears",2019],["Girl Band","Holding Hands with Jamie",2015],["Priests","Nothing Feels Natural",2017],["Algiers","The Underside of Power",2017],["Daughters","You Won't Get What You Want",2018],["METZ","METZ",2012],["The Soft Moon","The Soft Moon",2010],["The Fall","Your Future Our Clutter",2010],["Sleaford Mods","Divide and Exit",2014],["LCD Soundsystem","American Dream",2017],["black midi","Schlagenheim",2019]],"postpunk|2020s":[["Fontaines D.C.","Skinty Fia",2022],["Fontaines D.C.","A Hero's Death",2020],["Fontaines D.C.","Romance",2024],["Dry Cleaning","New Long Leg",2021],["Dry Cleaning","Stumpwork",2022],["Squid","Bright Green Field",2021],["black midi","Hellfire",2022],["Black Country, New Road","Ants from Up There",2022],["Black Country, New Road","For the First Time",2021],["IDLES","Crawler",2021],["IDLES","TANGK",2024],["Shame","Drunk Tank Pink",2021],["Yard Act","The Overload",2022],["Sprints","Letter to Self",2024],["The Murder Capital","Gigi's Recovery",2023],["Protomartyr","Formal Growth in the Desert",2023],["Viagra Boys","Cave World",2022],["Amyl and the Sniffers","Comfort to Me",2021],["Crack Cloud","Pain Olympics",2020],["Gilla Band","Most Normal",2022],["bar italia","Tracey Denim",2023],["Model/Actriz","Dogsbody",2023],["English Teacher","This Could Be Texas",2024],["High Vis","Blending",2022],["Fat Dog","WOOF.",2024]]};
+var BAKED = {"nubya garcia|source":["Pace","The Message Continues","Source","Together Is a Beautiful Place to Be","Stand with Each Other","Inner Game","Boundless Beings","Before Us: In Demerara & Caroni","La cumbia me está llamando","Source → Another"],"sons of kemet|black to the future":["Field Negus","Pick Up Your Burning Cross","Think of Home","Hustle","For the Culture","To Never Forget the Source","In Remembrance of Those Fallen","Let the Circle Be Unbroken","Envision Yourself Levitating","Throughout the Madness, Stay Strong","Black"],"floating points, pharoah sanders & the london symphony orchestra|promises":["Movement 1","Movement 2","Movement 3","Movement 4","Movement 5","Movement 6","Movement 7","Movement 8","Movement 9"],"kamasi washington|fearless movement":["Lesanu","Asha The First","Computer Love","The Visionary","Get Lit","Dream State","Together","The Garden Path","Road to Self (KO)","Interstellar Peace (The Last Stance)","Lines in the Sand","Prologue"],"domi & jd beck|not tight":["Louna's Intro","Whatup","Smile","Bowling","Not Tight","Two Shrimps","U Don't Have to Rob Me","Moon","Duke","Take a Chance","Space Mountain","Pilot","Whoa","Sniff","Thank U"],"makaya mccraven|in these times":["In These Times","The Fours","High Fives","Dream Another","Lullaby","This Place That Place","The Calling","Seventh String","So Ubuji","The Knew Untitled","The Title"],"led zeppelin|led zeppelin iv":["Black Dog","Rock and Roll","The Battle of Evermore","Stairway to Heaven","Misty Mountain Hop","Four Sticks","Going to California","When the Levee Breaks"],"the who|who's next":["Baba O'Riley","Bargain","Love Ain't for Keeping","My Wife","The Song Is Over","Getting in Tune","Going Mobile","Behind Blue Eyes","Won't Get Fooled Again"],"the rolling stones|sticky fingers":["Brown Sugar","Sway","Wild Horses","Can't You Hear Me Knocking","You Gotta Move","Bitch","I Got the Blues","Sister Morphine","Dead Flowers","Moonlight Mile"],"the rolling stones|exile on main st.":["Rocks Off","Rip This Joint","Shake Your Hips","Casino Boogie","Tumbling Dice","Sweet Virginia","Torn and Frayed","Sweet Black Angel","Loving Cup","Happy","Turd on the Run","Ventilator Blues","I Just Want to See His Face","Let It Loose","All Down the Line","Stop Breaking Down","Shine a Light","Soul Survivor"],"david bowie|the rise and fall of ziggy stardust and the spiders from mars":["Five Years","Soul Love","Moonage Daydream","Starman","It Ain't Easy","Lady Stardust","Star","Hang On to Yourself","Ziggy Stardust","Suffragette City","Rock 'n' Roll Suicide"],"led zeppelin|houses of the holy":["The Song Remains the Same","The Rain Song","Over the Hills and Far Away","The Crunge","Dancing Days","D'yer Mak'er","No Quarter","The Ocean"],"led zeppelin|physical graffiti":["Custard Pie","The Rover","In My Time of Dying","Houses of the Holy","Trampled Under Foot","Kashmir","In the Light","Bron-Yr-Aur","Down by the Seaside","Ten Years Gone","Night Flight","The Wanton Song","Boogie with Stu","Black Country Woman","Sick Again"],"the who|quadrophenia":["I Am the Sea","The Real Me","Quadrophenia","Cut My Hair","The Punk and the Godfather","I'm One","The Dirty Jobs","Helpless Dancer","Is It in My Head?","I've Had Enough","5:15","Sea and Sand","Drowned","Bell Boy","Doctor Jimmy","The Rock","Love, Reign o'er Me"],"paul mccartney and wings|band on the run":["Band on the Run","Jet","Bluebird","Mrs. Vandebilt","Let Me Roll It","Mamunia","No Words","Picasso's Last Words (Drink to Me)","Nineteen Hundred and Eighty-Five"],"bruce springsteen|born to run":["Thunder Road","Tenth Avenue Freeze-Out","Night","Backstreets","Born to Run","She's the One","Meeting Across the River","Jungleland"],"queen|a night at the opera":["Death on Two Legs (Dedicated to...)","Lazing on a Sunday Afternoon","I'm in Love with My Car","You're My Best Friend","'39","Sweet Lady","Seaside Rendezvous","The Prophet's Song","Love of My Life","Good Company","Bohemian Rhapsody","God Save the Queen"],"boston|boston":["More Than a Feeling","Peace of Mind","Foreplay/Long Time","Rock & Roll Band","Smokin'","Hitch a Ride","Something About You","Let Me Take You Home Tonight"],"eagles|hotel california":["Hotel California","New Kid in Town","Life in the Fast Lane","Wasted Time","Wasted Time (Reprise)","Victim of Love","Pretty Maids All in a Row","Try and Love Again","The Last Resort"],"fleetwood mac|rumours":["Second Hand News","Dreams","Never Going Back Again","Don't Stop","Go Your Own Way","Songbird","The Chain","You Make Loving Fun","I Don't Want to Know","Oh Daddy","Gold Dust Woman"],"queen|news of the world":["We Will Rock You","We Are the Champions","Sheer Heart Attack","All Dead, All Dead","Spread Your Wings","Fight from the Inside","Get Down, Make Love","Sleeping on the Sidewalk","Who Needs You","It's Late","My Melancholy Blues"],"billy joel|the stranger":["Movin' Out (Anthony's Song)","The Stranger","Just the Way You Are","Scenes from an Italian Restaurant","Vienna","Only the Good Die Young","She's Always a Woman","Get It Right the First Time","Everybody Has a Dream"],"van halen|van halen":["Runnin' with the Devil","Eruption","You Really Got Me","Ain't Talkin' 'bout Love","I'm the One","Jamie's Cryin'","Atomic Punk","Feel Your Love Tonight","Little Dreamer","Ice Cream Man","On Fire"],"the rolling stones|some girls":["Miss You","When the Whip Comes Down","Just My Imagination (Running Away with Me)","Some Girls","Lies","Far Away Eyes","Respectable","Before They Make Me Run","Beast of Burden","Shattered"],"bruce springsteen|darkness on the edge of town":["Badlands","Adam Raised a Cain","Something in the Night","Candy's Room","Racing in the Street","The Promised Land","Factory","Streets of Fire","Prove It All Night","Darkness on the Edge of Town"],"cheap trick|heaven tonight":["Surrender","On Top of the World","California Man","High Roller","Auf Wiedersehen","Takin' Me Back","On the Radio","Heaven Tonight","Stiff Competition","How Are You?","Oh Claire"],"ac/dc|highway to hell":["Highway to Hell","Girls Got Rhythm","Walk All Over You","Touch Too Much","Beating Around the Bush","Shot Down in Flames","Get It Hot","If You Want Blood (You've Got It)","Love Hungry Man","Night Prowler"],"pink floyd|the wall":["In the Flesh?","The Thin Ice","Another Brick in the Wall, Part 1","The Happiest Days of Our Lives","Another Brick in the Wall, Part 2","Mother","Goodbye Blue Sky","Empty Spaces","Young Lust","One of My Turns","Don't Leave Me Now","Another Brick in the Wall, Part 3","Goodbye Cruel World","Hey You","Is There Anybody Out There?","Nobody Home","Vera","Bring the Boys Back Home","Comfortably Numb","The Show Must Go On","In the Flesh","Run Like Hell","Waiting for the Worms","Stop","The Trial","Outside the Wall"],"supertramp|breakfast in america":["Gone Hollywood","The Logical Song","Goodbye Stranger","Breakfast in America","Oh Darling","Take the Long Way Home","Lord Is It Mine","Just Another Nervous Wreck","Casual Conversations","Child of Vision"],"the clash|london calling":["London Calling","Brand New Cadillac","Jimmy Jazz","Hateful","Rudie Can't Fail","Spanish Bombs","The Right Profile","Lost in the Supermarket","Clampdown","The Guns of Brixton","Wrong 'Em Boyo","Death or Glory","Koka Kola","The Card Cheat","Lover's Rock","Four Horsemen","I'm Not Down","Revolution Rock","Train in Vain"],"ramones|ramones":["Blitzkrieg Bop","Beat on the Brat","Judy Is a Punk","I Wanna Be Your Boyfriend","Chain Saw","Now I Wanna Sniff Some Glue","I Don't Wanna Go Down to the Basement","Loudmouth","Havana Affair","Listen to My Heart","53rd & 3rd","Let's Dance","I Don't Wanna Walk Around with You","Today Your Love, Tomorrow the World"],"ac/dc|back in black":["Hells Bells","Shoot to Thrill","What Do You Do for Money Honey","Given the Dog a Bone","Let Me Put My Love into You","Back in Black","You Shook Me All Night Long","Have a Drink on Me","Shake a Leg","Rock and Roll Ain't Noise Pollution"],"bruce springsteen|the river":["The Ties That Bind","Sherry Darling","Jackson Cage","Two Hearts","Independence Day","Hungry Heart","Out in the Street","Crush on You","You Can Look (But You Better Not Touch)","I Wanna Marry You","The River","Point Blank","Cadillac Ranch","I'm a Rocker","Fade Away","Stolen Car","Ramrod","The Price You Pay","Drive All Night","Wreck on the Highway"],"journey|escape":["Don't Stop Believin'","Stone in Love","Who's Crying Now","Keep on Runnin'","Still They Ride","Escape","Lay It Down","Dead or Alive","Mother, Father","Open Arms"],"def leppard|pyromania":["Rock! Rock! (Till You Drop)","Photograph","Stagefright","Too Late for Love","Die Hard the Hunter","Foolin'","Rock of Ages","Comin' Under Fire","Action! Not Words","Billy's Got a Gun"],"the police|synchronicity":["Synchronicity I","Walking in Your Footsteps","O My God","Mother","Miss Gradenko","Synchronicity II","Every Breath You Take","King of Pain","Wrapped Around Your Finger","Tea in the Sahara","Murder by Numbers"],"david bowie|let's dance":["Modern Love","China Girl","Let's Dance","Without You","Ricochet","Criminal World","Cat People (Putting Out Fire)","Shake It"],"bruce springsteen|born in the u.s.a.":["Born in the U.S.A.","Cover Me","Darlington County","Working on the Highway","Downbound Train","I'm on Fire","No Surrender","Bobby Jean","I'm Goin' Down","Glory Days","Dancing in the Dark","My Hometown"],"bryan adams|reckless":["One Night Love Affair","She's Only Happy When She's Dancin'","Run to You","Heaven","Somebody","Summer of '69","Kids Wanna Rock","It's Only Love","Long Gone","Ain't Gonna Cry"],"dire straits|brothers in arms":["So Far Away","Money for Nothing","Walk of Life","Your Latest Trick","Why Worry","Ride Across the River","The Man's Too Strong","One World","Brothers in Arms"],"bon jovi|slippery when wet":["Let It Rock","You Give Love a Bad Name","Livin' on a Prayer","Social Disease","Wanted Dead or Alive","Raise Your Hands","Without Love","I'd Die for You","Never Say Goodbye","Wild in the Streets"],"van halen|1984":["1984","Jump","Panama","Top Jimmy","Drop Dead Legs","Hot for Teacher","I'll Wait","Girl Gone Bad","House of Pain"],"peter gabriel|so":["Red Rain","Sledgehammer","Don't Give Up","That Voice Again","In Your Eyes","Mercy Street","Big Time","We Do What We're Told (Milgram's 37)","This Is the Picture (Excellent Birds)"],"paul simon|graceland":["The Boy in the Bubble","Graceland","I Know What I Know","Gumboots","Diamonds on the Soles of Her Shoes","You Can Call Me Al","Under African Skies","Homeless","Crazy Love, Vol. II","That Was Your Mother","All Around the World or the Myth of Fingerprints"],"u2|the joshua tree":["Where the Streets Have No Name","I Still Haven't Found What I'm Looking For","With or Without You","Bullet the Blue Sky","Running to Stand Still","Red Hill Mining Town","In God's Country","Trip Through Your Wires","One Tree Hill","Exit","Mothers of the Disappeared"],"guns n' roses|appetite for destruction":["Welcome to the Jungle","It's So Easy","Nightrain","Out ta Get Me","Mr. Brownstone","Paradise City","My Michelle","Think About You","Sweet Child o' Mine","You're Crazy","Anything Goes","Rocket Queen"],"def leppard|hysteria":["Women","Rocket","Animal","Love Bites","Pour Some Sugar on Me","Armageddon It","Gods of War","Don't Shoot Shotgun","Run Riot","Hysteria","Excitable","Love and Affection"],"inxs|kick":["Guns in the Sky","New Sensation","Devil Inside","Need You Tonight","Mediate","The Loved One","Wild Life","Never Tear Us Apart","Mystify","Kick","Calling All Nations","Tiny Daggers"],"r.e.m.|document":["Finest Worksong","Welcome to the Occupation","Exhuming McCarthy","Disturbance at the Heron House","Strange","It's the End of the World as We Know It (And I Feel Fine)","The One I Love","Fireplace","Lightnin' Hopkins","King of Birds","Oddfellows Local 151"],"pixies|surfer rosa":["Bone Machine","Break My Body","Something Against You","Broken Face","Gigantic","River Euphrates","Where Is My Mind?","Cactus","Tony's Theme","Oh My Golly!","Vamos","I'm Amazed","Brick Is Red"],"sonic youth|daydream nation":["Teen Age Riot","Silver Rocket","The Sprawl","'Cross the Breeze","Eric's Trip","Total Trash","Hey Joni","Providence","Candle","Rain King","Kissability","Trilogy: The Wonder / Hyperstation / Eliminator Jr."],"pixies|doolittle":["Debaser","Tame","Wave of Mutilation","I Bleed","Here Comes Your Man","Dead","Monkey Gone to Heaven","Mr. Grieves","Crackity Jones","La La Love You","No. 13 Baby","There Goes My Gun","Hey","Silver","Gouge Away"],"tom petty|full moon fever":["Free Fallin'","I Won't Back Down","Love Is a Long Road","A Face in the Crowd","Runnin' Down a Dream","Feel a Whole Lot Better","Yer So Bad","Depending on You","The Apartment Song","Alright for Now","A Mind with a Heart of Its Own","Zombie Zoo"],"lou reed|new york":["Romeo Had Juliette","Halloween Parade","Dirty Blvd.","Endless Cycle","There Is No Time","Last Great American Whale","Beginning of a Great Adventure","Busload of Faith","Sick of You","Hold On","Good Evening Mr. Waldheim","Xmas in February","Strawman","Dime Store Mystery"],"talking heads|speaking in tongues":["Burning Down the House","Making Flippy Floppy","Girlfriend Is Better","Slippery People","I Get Wild / Wild Gravity","Swamp","Moon Rocks","Pull Up the Roots","This Must Be the Place (Naive Melody)"],"living colour|vivid":["Cult of Personality","I Want to Know","Middle Man","Desperate People","Open Letter (To a Landlord)","Funny Vibe","Memories Can't Wait","Broken Hearts","Glamour Boys","What's Your Favorite Color?","Which Way to America"],"nirvana|nevermind":["Smells Like Teen Spirit","In Bloom","Come as You Are","Breed","Lithium","Polly","Territorial Pissings","Drain You","Lounge Act","Stay Away","On a Plain","Something in the Way"],"nirvana|in utero":["Serve the Servants","Scentless Apprentice","Heart-Shaped Box","Rape Me","Frances Farmer Will Have Her Revenge on Seattle","Dumb","Very Ape","Milk It","Pennyroyal Tea","Radio Friendly Unit Shifter","tourette's","All Apologies"],"pearl jam|ten":["Once","Even Flow","Alive","Why Go","Black","Jeremy","Oceans","Porch","Garden","Deep","Release"],"soundgarden|superunknown":["Let Me Drown","My Wave","Fell on Black Days","Mailman","Superunknown","Head Down","Black Hole Sun","Spoonman","Limo Wreck","The Day I Tried to Live","Kickstand","Fresh Tendrils","4th of July","Half","Like Suicide"],"the smashing pumpkins|siamese dream":["Cherub Rock","Quiet","Today","Hummer","Rocket","Disarm","Soma","Geek U.S.A.","Mayonaise","Spaceboy","Silverfuck","Sweet Sweet","Luna"],"the smashing pumpkins|mellon collie and the infinite sadness":["Mellon Collie and the Infinite Sadness","Tonight, Tonight","Jellybelly","Zero","Here Is No Why","Bullet with Butterfly Wings","To Forgive","Fuck You (An Ode to No One)","Love","Cupid de Locke","Galapogos","Muzzle","Porcelina of the Vast Oceans","Take Me Down","Where Boys Fear to Tread","Bodies","Thirty-Three","In the Arms of Sleep","1979","Tales of a Scorched Earth","Thru the Eyes of Ruby","Stumbleine","X.Y.U.","We Only Come Out at Night","Beautiful","Lily (My One and Only)","By Starlight","Farewell and Goodnight"],"radiohead|the bends":["Planet Telex","The Bends","High and Dry","Fake Plastic Trees","Bones","(Nice Dream)","Just","My Iron Lung","Bullet Proof..I Wish I Was","Black Star","Sulk","Street Spirit (Fade Out)"],"u2|achtung baby":["Zoo Station","Even Better Than the Real Thing","One","Until the End of the World","Who's Gonna Ride Your Wild Horses","So Cruel","The Fly","Mysterious Ways","Tryin' to Throw Your Arms Around the World","Ultraviolet (Light My Way)","Acrobat","Love Is Blindness"],"r.e.m.|automatic for the people":["Drive","Try Not to Breathe","The Sidewinder Sleeps Tonite","Everybody Hurts","New Orleans Instrumental No. 1","Sweetness Follows","Monty Got a Raw Deal","Ignoreland","Star Me Kitten","Man on the Moon","Nightswimming","Find the River"],"weezer|weezer (blue album)":["My Name Is Jonas","No One Else","The World Has Turned and Left Me Here","Buddy Holly","Undone – The Sweater Song","Surf Wax America","Say It Ain't So","In the Garage","Holiday","Only in Dreams"],"oasis|definitely maybe":["Rock 'n' Roll Star","Shakermaker","Live Forever","Up in the Sky","Columbia","Supersonic","Bring It on Down","Cigarettes & Alcohol","Digsy's Dinner","Slide Away","Married with Children"],"oasis|(what's the story) morning glory?":["Hello","Roll with It","Wonderwall","Don't Look Back in Anger","Hey Now!","Untitled (The Swamp Song – Excerpt 1)","Some Might Say","Cast No Shadow","She's Electric","Morning Glory","Untitled (The Swamp Song – Excerpt 2)","Champagne Supernova"],"blur|parklife":["Girls & Boys","Tracy Jacks","End of a Century","Parklife","Bank Holiday","Badhead","The Debt Collector","Far Out","To the End","London Loves","Trouble in the Message Centre","Clover Over Dover","Magic America","Jubilee","This Is a Low","Lot 105"],"pulp|different class":["Mis-Shapes","Pencil Skirt","Common People","I Spy","Disco 2000","Live Bed Show","Something Changed","Sorted for E's & Wizz","F.E.E.L.I.N.G.C.A.L.L.E.D.L.O.V.E.","Underwear","Monday Morning","Bar Italia"],"rage against the machine|rage against the machine":["Bombtrack","Killing in the Name","Take the Power Back","Settle for Nothing","Bullet in the Head","Know Your Enemy","Wake Up","Fistful of Steel","Township Rebellion","Freedom"],"stone temple pilots|purple":["Meatplow","Vasoline","Lounge Fly","Interstate Love Song","Still Remains","Pretty Penny","Silvergun Superman","Big Empty","Unglued","Army Ants","Kitchenware & Candybars"],"hole|live through this":["Violet","Miss World","Plump","Asking for It","Jennifer's Body","Doll Parts","Credit in the Straight World","Softer, Softest","She Walks on Me","I Think That I Would Die","Gutless","Rock Star (Olympia)"],"beck|odelay":["Devils Haircut","Hotwax","Lord Only Knows","The New Pollution","Derelict","Novacane","Jack-Ass","Where It's At","Minus","Sissyneck","Readymade","High 5 (Rock the Catskills)","Ramshackle"],"green day|dookie":["Burnout","Having a Blast","Chump","Longview","Welcome to Paradise","Pulling Teeth","Basket Case","She","Sassafras Roots","When I Come Around","Coming Clean","Emenius Sleepus","In the End","F.O.D."],"red hot chili peppers|blood sugar sex magik":["The Power of Equality","If You Have to Ask","Breaking the Girl","Funky Monks","Suck My Kiss","I Could Have Lied","Mellowship Slinky in B Major","The Righteous & the Wicked","Give It Away","Blood Sugar Sex Magik","Under the Bridge","Naked in the Rain","Apache Rose Peacock","The Greeting Song","My Lovely Man","Sir Psycho Sexy","They're Red Hot"],"pavement|slanted and enchanted":["Summer Babe (Winter Version)","Trigger Cut / Wounded-Kite at :17","No Life Singed Her","In the Mouth a Desert","Conduit for Sale!","Zurich Is Stained","Chesley's Little Wrists","Loretta's Scars","Here","Two States","Perfume-V","Fame Throwa","Jackals, False Grails: The Lonesome Era","Our Singer"],"neutral milk hotel|in the aeroplane over the sea":["The King of Carrot Flowers, Pt. One","The King of Carrot Flowers, Pts. Two & Three","In the Aeroplane Over the Sea","Two-Headed Boy","The Fool","Holland, 1945","Communist Daughter","Oh Comely","Ghost","[untitled]","Two-Headed Boy, Pt. Two"],"my bloody valentine|loveless":["Only Shallow","Loomer","Touched","To Here Knows When","When You Sleep","I Only Said","Come in Alone","Sometimes","Blown a Wish","What You Want","Soon"],"foo fighters|the colour and the shape":["Doll","Monkey Wrench","Hey, Johnny Park!","My Poor Brain","Wind Up","Up in Arms","My Hero","See You","Enough Space","February Stars","Everlong","Walking After You","New Way Home"],"jeff buckley|grace":["Mojo Pin","Grace","Last Goodbye","Lilac Wine","So Real","Hallelujah","Lover, You Should've Come Over","Corpus Christi Carol","Eternal Life","Dream Brother"]};
+
+var GENRES = [
+  { id: "rock", name: "Rock", color: "#E5533C" },
+  { id: "metal", name: "Heavy Metal", color: "#A8B0BC" },
+  { id: "prog", name: "Prog Rock", color: "#8B7BE8" },
+  { id: "rnb", name: "R&B", color: "#E0A13C" },
+  { id: "jazz", name: "Jazz", color: "#3CB8AE" },
+  { id: "postpunk", name: "Post-Punk", color: "#D45C93" }
+];
+var DECADES = ["1970s","1980s","1990s","2000s","2010s","2020s"];
+var VIBES = ["Banger","Chill","Moody","Epic","Groovy","Raw","Dreamy","Heavy","Smooth","Weird"];
+var STANDOUT = ["Drums","Guitar","Vocals","Bass","Production","Soundscape","Keys","Horns","Strings"];
+var LEDGER_KEY = "canon-ledger-v2";
+var CACHE_KEY = "canon-tracks-v2";
+
+var LISTS = {};
+Object.keys(RAW).forEach(function(k){
+  LISTS[k] = RAW[k].map(function(t){ return { artist: t[0], album: t[1], year: t[2] }; });
+});
+var TOTAL_ALBUMS = 0;
+Object.keys(LISTS).forEach(function(k){ TOTAL_ALBUMS += LISTS[k].length; });
+
+/* ---------- state ---------- */
+var ledger = {};
+var tracksCache = {};
+Object.keys(BAKED).forEach(function(k){ tracksCache[k] = BAKED[k]; });
+var genre = "rock";
+var decade = "1970s";
+var view = "list";
+var currentStar = 5;
+var currentFormat = "cd";
+var currentProducer = "";
+var current = null;
+var openTrack = null;
+var loading = false, loadErr = null;
+var inflight = {};
+var saveTimer = null;
+var hasStorage = typeof window.storage !== "undefined";
+
+function gd(){ return genre + "|" + decade; }
+function akey(a){ return (a.artist + "|" + a.album).toLowerCase(); }
+function emptyAlbum(){ return { listened:false, rating:0, notes:"", songs:{}, cd:false, cassette:false, vinyl:false, recommend:false, producer:"" }; }
+function getA(k){ return ledger[k] || emptyAlbum(); }
+function getS(k,i){ return (getA(k).songs||{})[i] || { done:false, vibes:[], note:"", rating:0, standout:[] }; }
+function esc(s){ return String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;"); }
+
+function patchAlbum(k, patch){
+  var base = emptyAlbum(), cur = getA(k), out = {}, p;
+  for(p in base) out[p] = base[p];
+  for(p in cur) out[p] = cur[p];
+  for(p in patch) out[p] = patch[p];
+  ledger[k] = out; scheduleSave();
+}
+function patchSong(k, i, patch){
+  var a = getA(k), na = emptyAlbum(), p;
+  for(p in a) na[p] = a[p];
+  var songs = {}, s0 = na.songs || {};
+  for(p in s0) songs[p] = s0[p];
+  var cur = getS(k,i), ns = {};
+  for(p in cur) ns[p] = cur[p];
+  for(p in patch) ns[p] = patch[p];
+  songs[i] = ns; na.songs = songs;
+  var tr = tracksCache[k];
+  if(tr && tr.length){
+    var all = true;
+    for(var j=0;j<tr.length;j++){ if(!(songs[j] && songs[j].done)){ all=false; break; } }
+    na.listened = all;
+  }
+  ledger[k] = na; scheduleSave();
+}
+
+/* ---------- progress ---------- */
+function isDone(k){ return !!getA(k).listened; }
+function crateProgress(g,d){
+  var list = LISTS[g+"|"+d] || [], n = 0;
+  for(var i=0;i<list.length;i++) if(isDone(akey(list[i]))) n++;
+  return n;
+}
+function genreDone(g){
+  var n=0; for(var i=0;i<DECADES.length;i++) n += crateProgress(g, DECADES[i]);
+  return n;
+}
+function totalDone(){
+  var n=0; for(var i=0;i<GENRES.length;i++) n += genreDone(GENRES[i].id);
+  return n;
+}
+
+/* ---------- persistence ---------- */
+function load(){
+  if(!hasStorage) return;
+  function t(ms){ return new Promise(function(r){ setTimeout(r, ms); }); }
+  Promise.race([window.storage.get(LEDGER_KEY), t(3000)]).then(function(r){
+    if(r && r.value){ ledger = JSON.parse(r.value); render(); }
+  }).catch(function(){});
+  Promise.race([window.storage.get(CACHE_KEY), t(3000)]).then(function(r){
+    if(r && r.value){
+      var saved = JSON.parse(r.value);
+      // Baked tracklists always win/persist; saved data only adds to them.
+      Object.keys(BAKED).forEach(function(k){ tracksCache[k] = BAKED[k]; });
+      Object.keys(saved).forEach(function(k){ if(!tracksCache[k]) tracksCache[k] = saved[k]; });
+      render();
+    }
+  }).catch(function(){});
+}
+function scheduleSave(){
+  setStatus("saving…");
+  clearTimeout(saveTimer);
+  saveTimer = setTimeout(function(){
+    if(hasStorage){
+      Promise.resolve().then(function(){
+        return window.storage.set(LEDGER_KEY, JSON.stringify(ledger));
+      }).then(function(){
+        var extra = {};
+        Object.keys(tracksCache).forEach(function(k){ if(!BAKED[k]) extra[k] = tracksCache[k]; });
+        return window.storage.set(CACHE_KEY, JSON.stringify(extra));
+      }).then(function(){ setStatus("saved ✓"); })
+      .catch(function(){ setStatus("in-memory only"); })
+      .then(function(){ setTimeout(function(){ setStatus(""); }, 2000); });
+    } else {
+      setStatus("in-memory only");
+      setTimeout(function(){ setStatus(""); }, 2000);
+    }
+  }, 800);
+}
+function setStatus(msg){
+  var el = document.getElementById("status");
+  if(el) el.textContent = msg || (totalDone() + "/" + TOTAL_ALBUMS + " albums");
+}
+
+/* tracklists are baked into BAKED — no network, ever. */
+var loadDetail = "";
+function ensureTracks(a){ /* no-op: everything is local */ }
+
+/* ---------- render ---------- */
+function accent(){
+  for(var i=0;i<GENRES.length;i++) if(GENRES[i].id===genre) return GENRES[i].color;
+  return "#E5533C";
+}
+function genreObj(){
+  for(var i=0;i<GENRES.length;i++) if(GENRES[i].id===genre) return GENRES[i];
+  return GENRES[0];
+}
+
+function render(){
+  document.body.style.setProperty("--accent", accent());
+  setStatus("");
+  var mf = document.getElementById("meterFill");
+  if(mf) mf.style.width = (totalDone()/TOTAL_ALBUMS*100)+"%";
+  renderTopNav();
+  var showRails = (view === "list" || view === "album");
+  document.getElementById("genreNav").style.display = showRails ? "flex" : "none";
+  document.getElementById("decadeNav").style.display = (view === "list") ? "flex" : "none";
+  if(showRails){ renderGenres(); renderDecades(); }
+  var main = document.getElementById("main");
+  if(view === "hub") renderHub(main);
+  else if(view === "vibes") renderVibes(main);
+  else if(view === "ratings") renderRatings(main);
+  else if(view === "formats") renderFormats(main);
+  else if(view === "recommend") renderRecommend(main);
+  else if(view === "producer") renderProducer(main);
+  else if(view === "album" && current) renderAlbum(main);
+  else renderList(main);
+}
+
+function renderTopNav(){
+  var nav = document.getElementById("topNav"); nav.innerHTML = "";
+  var items = [
+    { id:"hub", label:"Hub" },
+    { id:"list", label:"Crate" },
+    { id:"vibes", label:"Vibes" },
+    { id:"ratings", label:"Ratings" }
+  ];
+  items.forEach(function(it){
+    var on = (it.id===view) || (it.id==="list" && view==="album");
+    var b = document.createElement("button");
+    b.className = "tnav" + (on ? " on" : "");
+    b.textContent = it.label;
+    b.onclick = function(){ view = it.id; openTrack = null; if(it.id!=="album") current = (it.id==="list"?current:null); render(); window.scrollTo(0,0); };
+    nav.appendChild(b);
+  });
+}
+
+function renderGenres(){
+  var nav = document.getElementById("genreNav"); nav.innerHTML = "";
+  GENRES.forEach(function(x){
+    var b = document.createElement("button");
+    b.className = "gpill" + (x.id===genre ? " on" : "");
+    b.style.setProperty("--gc", x.color);
+    b.innerHTML = esc(x.name) + "<small>" + genreDone(x.id) + "/" + (DECADES.length*25) + "</small>";
+    b.onclick = function(){ genre=x.id; view="list"; openTrack=null; loadErr=null; render(); };
+    nav.appendChild(b);
+  });
+}
+
+function renderDecades(){
+  var nav = document.getElementById("decadeNav"); nav.innerHTML = "";
+  DECADES.forEach(function(d){
+    var p = crateProgress(genre, d);
+    var mark = p===25 ? " ●" : (p>0 ? " ◐" : "");
+    var b = document.createElement("button");
+    b.className = "dpill" + (d===decade ? " on" : "");
+    b.textContent = d.slice(2) + mark;
+    b.onclick = function(){ decade=d; view="list"; openTrack=null; loadErr=null; render(); };
+    nav.appendChild(b);
+  });
+}
+
+/* ---------- collectors for browse pages ---------- */
+function allAlbums(){
+  var out = [];
+  GENRES.forEach(function(g){
+    DECADES.forEach(function(d){
+      var list = LISTS[g.id+"|"+d] || [];
+      list.forEach(function(a){ out.push({ a:a, g:g, d:d }); });
+    });
+  });
+  return out;
+}
+function songsForVibe(v){
+  var out = [];
+  allAlbums().forEach(function(rec){
+    var k = akey(rec.a);
+    var songs = getA(k).songs || {};
+    var tr = tracksCache[k];
+    Object.keys(songs).forEach(function(i){
+      var s = songs[i];
+      if(s && s.vibes && s.vibes.indexOf(v) >= 0){
+        var title = (tr && tr[+i]) ? tr[+i] : ("Track " + (+i+1));
+        out.push({ title:title, rec:rec, k:k });
+      }
+    });
+  });
+  return out;
+}
+function albumsForStar(n){
+  var out = [];
+  allAlbums().forEach(function(rec){
+    if(getA(akey(rec.a)).rating === n) out.push(rec);
+  });
+  return out;
+}
+function albumsWithFlag(flag){
+  var out = [];
+  allAlbums().forEach(function(rec){
+    if(getA(akey(rec.a))[flag]) out.push(rec);
+  });
+  return out;
+}
+
+function renderHub(main){
+  var html = '<div class="sect-title">Browse</div><div class="hub-grid">';
+  html += '<button class="hub-card" data-go="list"><h3>The Crate</h3><p>All 900 records by genre & decade</p><span class="big">' + totalDone() + '/' + TOTAL_ALBUMS + '</span></button>';
+  var vibeTotal = 0;
+  VIBES.forEach(function(v){ vibeTotal += songsForVibe(v).length; });
+  html += '<button class="hub-card" data-go="vibes"><h3>Vibes</h3><p>Every song you\'ve tagged, by vibe</p><span class="big">' + vibeTotal + '</span></button>';
+  var rated = 0;
+  for(var n=1;n<=5;n++) rated += albumsForStar(n).length;
+  html += '<button class="hub-card" data-go="ratings"><h3>Ratings</h3><p>Your albums by star level</p><span class="big">' + rated + '</span></button>';
+  var owned = allAlbums().filter(function(rec){ var s=getA(akey(rec.a)); return s.cd||s.cassette||s.vinyl; }).length;
+  html += '<button class="hub-card" data-go="formats"><h3>Collection</h3><p>Albums you own on CD, cassette & vinyl</p><span class="big">' + owned + '</span></button>';
+  var recs = albumsWithFlag("recommend").length;
+  html += '<button class="hub-card" data-go="recommend"><h3>Recommended</h3><p>Albums you\'d recommend</p><span class="big">' + recs + '</span></button>';
+  var listened = totalDone();
+  html += '<button class="hub-card" data-go="list"><h3>Listened</h3><p>Albums marked complete</p><span class="big">' + listened + '</span></button>';
+  html += '</div>';
+
+  html += '<div class="sect-title">Progress by genre</div>';
+  GENRES.forEach(function(g){
+    html += '<div style="padding:2px 2px 6px"><div style="display:flex;justify-content:space-between;align-items:baseline"><span style="color:' + g.color + ';font-weight:600;font-size:14px">' + esc(g.name) + '</span><span class="cnt" style="font-family:\'Space Mono\',monospace;font-size:10.5px;color:#6B6478">' + genreDone(g.id) + '/150</span></div>';
+    html += '<div class="dprog">';
+    DECADES.forEach(function(d){
+      var p = crateProgress(g.id, d);
+      html += '<div class="dprow" data-g="' + g.id + '" data-d="' + d + '"><span class="lab">' + d + '</span>' +
+        '<div class="dpbar" style="--accent:' + g.color + '"><div style="width:' + (p/25*100) + '%"></div></div>' +
+        '<span class="cnt">' + p + '/25</span></div>';
+    });
+    html += '</div></div>';
+  });
+  main.innerHTML = html;
+  main.querySelectorAll("[data-go]").forEach(function(b){
+    b.onclick = function(){ view = b.dataset.go; render(); window.scrollTo(0,0); };
+  });
+  main.querySelectorAll(".dprow").forEach(function(r){
+    r.onclick = function(){ genre = r.dataset.g; decade = r.dataset.d; view = "list"; render(); window.scrollTo(0,0); };
+  });
+}
+
+function renderVibes(main){
+  var html = '<div class="sect-title">Vibes — every tagged song</div>';
+  var any = false;
+  VIBES.forEach(function(v){
+    var songs = songsForVibe(v);
+    if(!songs.length) return;
+    any = true;
+    html += '<div class="vibe-head"><span class="vibe-chip" style="--accent:' + accent() + '">' + esc(v) + '</span><span class="vibe-count">' + songs.length + ' song' + (songs.length>1?"s":"") + '</span></div>';
+    songs.forEach(function(s){
+      html += '<div class="song-row" data-k="' + esc(s.k) + '" data-g="' + s.rec.g.id + '" data-d="' + s.rec.d + '">' +
+        '<span class="sng">' + esc(s.title) + '</span>' +
+        '<span class="alb">' + esc(s.rec.a.album) + '</span>' +
+        '<span class="gtag" style="color:' + s.rec.g.color + '">' + esc(s.rec.g.name) + ' · ' + s.rec.d + '</span></div>';
+    });
+  });
+  if(!any) html += '<div class="empty-note">No vibes tagged yet. Open any album, expand a track, and tap a vibe pill like Groovy or Moody — tagged songs collect here automatically.</div>';
+  main.innerHTML = html;
+  main.querySelectorAll(".song-row").forEach(function(r){
+    r.onclick = function(){ openFromBrowse(r.dataset.g, r.dataset.d, r.dataset.k); };
+  });
+}
+
+function renderRatings(main){
+  var html = '<div class="sect-title">Ratings</div><nav class="topnav" style="padding-left:2px">';
+  for(var n=5;n>=1;n--){
+    html += '<button class="tnav ' + (n===currentStar?"on":"") + '" data-star="' + n + '">' + n + '★</button>';
+  }
+  html += '</nav>';
+  var albums = albumsForStar(currentStar);
+  html += '<div class="vibe-head"><span class="vibe-count">' + albums.length + ' album' + (albums.length===1?"":"s") + ' rated ' + currentStar + ' star' + (currentStar===1?"":"s") + '</span></div>';
+  if(!albums.length){
+    html += '<div class="empty-note">No ' + currentStar + '-star albums yet. Open an album and tap the stars to rate it — it\'ll show up here.</div>';
+  } else {
+    albums.forEach(function(rec){
+      var stars = "";
+      for(var i=0;i<currentStar;i++) stars += "★";
+      html += '<div class="star-row" data-g="' + rec.g.id + '" data-d="' + rec.d + '" data-k="' + esc(akey(rec.a)) + '">' +
+        '<span class="stars-mini">' + stars + '</span>' +
+        '<span class="ainfo"><span class="aname" style="font-size:14px;font-weight:600">' + esc(rec.a.album) + '</span><br><span class="aartist" style="font-size:12px;color:#9B93A8">' + esc(rec.a.artist) + '</span></span>' +
+        '<span class="gtag" style="margin-left:auto;font-family:\'Space Mono\',monospace;font-size:9.5px;color:' + rec.g.color + '">' + esc(rec.g.name) + ' · ' + rec.d + '</span></div>';
+    });
+  }
+  main.innerHTML = html;
+  main.querySelectorAll("[data-star]").forEach(function(b){
+    b.onclick = function(){ currentStar = +b.dataset.star; render(); };
+  });
+  main.querySelectorAll(".star-row").forEach(function(r){
+    r.onclick = function(){ openFromBrowse(r.dataset.g, r.dataset.d, r.dataset.k); };
+  });
+}
+
+function albumRow(rec, lead){
+  return '<div class="star-row" data-g="' + rec.g.id + '" data-d="' + rec.d + '" data-k="' + esc(akey(rec.a)) + '">' +
+    (lead ? '<span class="stars-mini">' + lead + '</span>' : '') +
+    '<span class="ainfo"><span class="aname" style="font-size:14px;font-weight:600">' + esc(rec.a.album) + '</span><br><span class="aartist" style="font-size:12px;color:#9B93A8">' + esc(rec.a.artist) + '</span></span>' +
+    '<span class="gtag" style="margin-left:auto;font-family:\'Space Mono\',monospace;font-size:9.5px;color:' + rec.g.color + '">' + esc(rec.g.name) + ' · ' + rec.d + '</span></div>';
+}
+
+function renderFormats(main){
+  var FORMATS = [{id:"cd",label:"CD"},{id:"cassette",label:"Cassette"},{id:"vinyl",label:"Vinyl"}];
+  var html = '<div class="sect-title">Collection</div><nav class="topnav" style="padding-left:2px">';
+  FORMATS.forEach(function(f){
+    html += '<button class="tnav ' + (f.id===currentFormat?"on":"") + '" data-fmt="' + f.id + '">' + f.label + ' (' + albumsWithFlag(f.id).length + ')</button>';
+  });
+  html += '</nav>';
+  var fmtLabel = FORMATS.filter(function(f){ return f.id===currentFormat; })[0].label;
+  var albums = albumsWithFlag(currentFormat);
+  html += '<div class="vibe-head"><span class="vibe-count">' + albums.length + ' album' + (albums.length===1?"":"s") + ' on ' + fmtLabel + '</span></div>';
+  if(!albums.length){
+    html += '<div class="empty-note">No albums marked as owned on ' + fmtLabel + ' yet. Open an album and tap "Have on ' + fmtLabel + '" to add it here.</div>';
+  } else {
+    albums.forEach(function(rec){ html += albumRow(rec, "◆"); });
+  }
+  main.innerHTML = html;
+  main.querySelectorAll("[data-fmt]").forEach(function(b){
+    b.onclick = function(){ currentFormat = b.dataset.fmt; render(); };
+  });
+  main.querySelectorAll(".star-row").forEach(function(r){
+    r.onclick = function(){ openFromBrowse(r.dataset.g, r.dataset.d, r.dataset.k); };
+  });
+}
+
+function renderRecommend(main){
+  var albums = albumsWithFlag("recommend");
+  var html = '<div class="sect-title">Recommended</div>';
+  html += '<div class="vibe-head"><span class="vibe-count">' + albums.length + ' album' + (albums.length===1?"":"s") + ' you\'d recommend</span></div>';
+  if(!albums.length){
+    html += '<div class="empty-note">No recommendations yet. Open an album and tap "Recommend" to add it here.</div>';
+  } else {
+    albums.forEach(function(rec){ html += albumRow(rec, "✚"); });
+  }
+  main.innerHTML = html;
+  main.querySelectorAll(".star-row").forEach(function(r){
+    r.onclick = function(){ openFromBrowse(r.dataset.g, r.dataset.d, r.dataset.k); };
+  });
+}
+
+function albumsByProducer(name){
+  var target = String(name||"").trim().toLowerCase();
+  var out = [];
+  if(!target) return out;
+  allAlbums().forEach(function(rec){
+    var raw = (getA(akey(rec.a)).producer||"");
+    var names = raw.split(",").map(function(x){ return x.trim().toLowerCase(); });
+    if(names.indexOf(target) >= 0) out.push(rec);
+  });
+  return out;
+}
+
+function renderProducer(main){
+  var albums = albumsByProducer(currentProducer);
+  var html = '<button class="back" id="prodBack">‹ back to the crate</button>';
+  html += '<div class="sect-title">Producer</div>';
+  html += '<div class="vibe-head"><span class="vibe-chip" style="--accent:' + accent() + '">' + esc(currentProducer) + '</span><span class="vibe-count">' + albums.length + ' album' + (albums.length===1?"":"s") + '</span></div>';
+  if(!albums.length){
+    html += '<div class="empty-note">No other albums credited to this producer yet. Add the same producer name on other albums and they\'ll collect here.</div>';
+  } else {
+    albums.forEach(function(rec){ html += albumRow(rec, "●"); });
+  }
+  main.innerHTML = html;
+  main.querySelector("#prodBack").onclick = function(){ view = "list"; render(); window.scrollTo(0,0); };
+  main.querySelectorAll(".star-row").forEach(function(r){
+    r.onclick = function(){ openFromBrowse(r.dataset.g, r.dataset.d, r.dataset.k); };
+  });
+}
+
+function openFromBrowse(g, d, k){
+  genre = g; decade = d;
+  var list = LISTS[g+"|"+d] || [];
+  for(var i=0;i<list.length;i++){
+    if(akey(list[i]) === k){ current = list[i]; break; }
+  }
+  view = "album"; openTrack = null; render(); window.scrollTo(0,0);
+}
+
+function comingSoon(){
+  return '<div class="errbox"><div class="errmsg">Track-by-track listing for this album isn\'t in yet — it\'s being added crate by crate. You can still mark the whole album listened, rate it, and write your review.</div></div>';
+}
+
+function renderList(main){
+  var g = genreObj();
+  var list = LISTS[gd()] || [];
+  var done = 0, i;
+  for(i=0;i<list.length;i++) if(isDone(akey(list[i]))) done++;
+  var html = '<div class="crate-head"><span class="crate-title">' + esc(g.name) + " · " + decade +
+    '</span><span class="crate-count">' + done + "/" + list.length + ' listened</span></div><ol>';
+  for(i=0;i<list.length;i++){
+    var a = list[i], k = akey(a), st = getA(k);
+    var tr = tracksCache[k], heard = null;
+    if(tr){ heard = 0; for(var j=0;j<tr.length;j++) if(getS(k,j).done) heard++; }
+    var badge = st.rating ? "★" + st.rating : (heard!==null && heard>0 && !st.listened ? heard + "/" + tr.length : "");
+    var flags = (st.cd?'<span class="cd">CD</span> ':"") + (st.cassette?'<span class="cs">CS</span> ':"") + (st.vinyl?'<span class="lp">LP</span> ':"") + (st.recommend?'<span class="rec">✚</span>':"");
+    var prodBadge = "";
+    if(st.producer && st.producer.trim()){
+      st.producer.split(",").forEach(function(pr){
+        var name = pr.trim();
+        if(name) prodBadge += '<button class="prod-badge" data-prod="' + esc(name) + '">' + esc(name) + '</button>';
+      });
+    }
+    html += '<li><div class="arow">' +
+      '<button class="check ' + (st.listened?"on":"") + '" data-i="' + i + '" aria-label="Toggle listened">' + (st.listened?"✓":"") + '</button>' +
+      '<button class="abtn" data-open="' + i + '"><span class="anum">' + String(i+1).padStart(2,"0") + '</span>' +
+      '<span class="ainfo"><span class="aname">' + esc(a.album) + '</span><span class="ayear">(' + a.year + ')</span>' +
+      (badge ? '<span class="abadge">' + esc(badge) + '</span>' : "") +
+      (flags ? '<span class="fbadge">' + flags + '</span>' : "") +
+      '<br><span class="aartist">' + esc(a.artist) + '</span>' + prodBadge + '</span>' +
+      '<span class="chev">›</span></button></div></li>';
+  }
+  html += "</ol><p class='foot'>tap a record to open its tracklist · checks &amp; notes save automatically</p>";
+  main.innerHTML = html;
+  main.querySelectorAll(".check").forEach(function(b){
+    b.onclick = function(){
+      var a = list[+b.dataset.i], k = akey(a);
+      patchAlbum(k, { listened: !getA(k).listened }); render();
+    };
+  });
+  main.querySelectorAll(".abtn").forEach(function(b){
+    b.onclick = function(){
+      current = list[+b.dataset.open]; view = "album"; openTrack = null; loadErr = null;
+      render(); ensureTracks(current);
+      window.scrollTo(0,0);
+    };  });
+  main.querySelectorAll(".prod-badge").forEach(function(b){
+    b.onclick = function(e){
+      e.stopPropagation();
+      currentProducer = b.dataset.prod;
+      view = "producer"; openTrack = null;
+      render(); window.scrollTo(0,0);
+    };
+  });
+}
+
+function renderAlbum(main){
+  var g = genreObj();
+  var a = current, k = akey(a);
+  var st = getA(k);
+  var tr = tracksCache[k];
+  var html = '<button class="back" id="backBtn">‹ back to the crate</button>';
+
+  var heard = 0, i;
+  if(tr){ for(i=0;i<tr.length;i++) if(getS(k,i).done) heard++; }
+  var full = tr && tr.length>0 && heard===tr.length;
+  html += '<section class="sleeve"><div class="vinyl" aria-hidden="true"></div>' +
+    '<div class="eyebrow">' + esc(g.name) + " · " + decade + '</div>' +
+    '<h2>' + esc(a.album) + '</h2>' +
+    '<div class="artist">' + esc(a.artist) + ' <span>(' + a.year + ')</span></div>' +
+    '<div class="controls">' +
+      '<button class="markall ' + ((full||st.listened)?"full":"") + '" id="markAll">' +
+        ((full||st.listened) ? "✓ Listened — full album" : "Mark whole album listened") + '</button>' +
+      (tr ? '<span class="count">' + heard + "/" + tr.length + ' tracks</span>' : "") +
+    '</div>' +
+    '<div class="stars" id="stars">' +
+      [1,2,3,4,5].map(function(n){ return '<button class="star ' + (n<=st.rating?"on":"") + '" data-n="' + n + '" aria-label="Rate ' + n + ' of 5">★</button>'; }).join("") +
+      '<span class="ratelabel">' + (st.rating ? st.rating + "/5" : "rate it") + '</span></div>' +
+    '<textarea id="albumNotes" rows="3" placeholder="Album review — first impressions, favorite side, where you were when you heard it…">' + esc(st.notes) + '</textarea>' +
+    '<input id="albumProducer" class="prod-input" type="text" placeholder="Producer(s)… (tap the badge in the crate to see all albums by them)" value="' + esc(st.producer||"") + '">' +
+    '<div class="aflags">' +
+      '<button class="aflag ' + (st.cd?"on":"") + '" id="flagCd"><span class="ic">' + (st.cd?"✓":"◇") + '</span>Have on CD</button>' +
+      '<button class="aflag ' + (st.cassette?"on":"") + '" id="flagCassette"><span class="ic">' + (st.cassette?"✓":"◇") + '</span>Have on Cassette</button>' +
+      '<button class="aflag ' + (st.vinyl?"on":"") + '" id="flagVinyl"><span class="ic">' + (st.vinyl?"✓":"◇") + '</span>Have on Vinyl</button>' +
+      '<button class="aflag ' + (st.recommend?"on":"") + '" id="flagRecommend"><span class="ic">' + (st.recommend?"★":"☆") + '</span>Recommend</button>' +
+    '</div>' +
+  '</section>';
+
+  if(!tr){
+    html += comingSoon();
+  } else {
+    html += "<ol>";
+    for(i=0;i<tr.length;i++){
+      var t = tr[i], s = getS(k,i);
+      var open = openTrack===i;
+      var tagStr = ((s.rating ? s.rating + "/10" : "") + (s.vibes&&s.vibes.length ? (s.rating?"  ":"") + s.vibes.slice(0,3).join(" · ") : "") + (s.standout&&s.standout.length ? "  ✦" + s.standout.slice(0,2).join("·") : "") + (s.note ? " ✎" : "")).trim();
+      html += '<li><div class="trow">' +
+        '<button class="check ' + (s.done?"on":"") + '" data-t="' + i + '" aria-label="Toggle track listened">' + (s.done?"✓":"") + '</button>' +
+        '<button class="tbtn" data-x="' + i + '"><span class="tnum">' + String(i+1).padStart(2,"0") + '</span>' +
+        '<span class="tname ' + (s.done?"done":"") + '">' + esc(t) +
+        (tagStr ? '<span class="ttags">' + esc(tagStr) + '</span>' : "") + '</span>' +
+        '<span class="caret ' + (open?"open":"") + '">▾</span></button></div>';
+      if(open){
+        var srow = '<div class="srate"><span class="lab">Rate</span>';
+        for(var r=1;r<=10;r++){
+          srow += '<button class="sdot ' + ((s.rating>=r&&s.rating>0)?"on":"") + '" data-sr="' + i + '" data-rv="' + r + '">' + r + '</button>';
+        }
+        srow += (s.rating ? '<span class="sscore">' + s.rating + '/10</span>' : '') + '</div>';
+        html += '<div class="expand">' + srow +
+          '<div class="section-lab">Vibes</div><div class="vibes">' +
+          VIBES.map(function(v){ return '<button class="vpill ' + (s.vibes&&s.vibes.indexOf(v)>=0?"on":"") + '" data-v="' + esc(v) + '" data-vt="' + i + '">' + v + '</button>'; }).join("") +
+          '</div>' +
+          '<div class="section-lab">Standout performance</div><div class="vibes">' +
+          STANDOUT.map(function(sp){ return '<button class="spill ' + (s.standout&&s.standout.indexOf(sp)>=0?"on":"") + '" data-sp="' + esc(sp) + '" data-st="' + i + '">' + sp + '</button>'; }).join("") +
+          '</div><div style="font-family:\'Space Mono\',monospace;font-size:10px;color:#6B6478;margin:2px 0 8px">tap to tag · collected on the Vibes page</div>' +
+          '<textarea rows="2" data-nt="' + i + '" placeholder="Notes on this track…">' + esc(s.note||"") + '</textarea></div>';
+      }
+      html += "</li>";
+    }
+    html += "</ol>";
+  }
+  html += "<p class='foot'>checks &amp; notes save automatically</p>";
+  main.innerHTML = html;
+
+  main.querySelector("#backBtn").onclick = function(){ view="list"; openTrack=null; render(); };
+  main.querySelector("#markAll").onclick = function(){
+    var val = !(full||st.listened);
+    var na = getA(k), base = emptyAlbum(), p;
+    var out = {};
+    for(p in base) out[p] = base[p];
+    for(p in na) out[p] = na[p];
+    var songs = {}, s0 = out.songs || {};
+    for(p in s0) songs[p] = s0[p];
+    if(tr){
+      for(var i2=0;i2<tr.length;i2++){
+        var cur = getS(k,i2), ns = {};
+        for(p in cur) ns[p] = cur[p];
+        ns.done = val; songs[i2] = ns;
+      }
+    }
+    out.songs = songs; out.listened = val;
+    ledger[k] = out; scheduleSave(); render();
+  };
+  main.querySelectorAll(".star").forEach(function(s){
+    s.onclick = function(){ var n=+s.dataset.n; patchAlbum(k,{ rating: st.rating===n?0:n }); render(); };
+  });
+  main.querySelector("#albumNotes").oninput = function(e){ patchAlbum(k,{ notes: e.target.value }); };
+  main.querySelector("#albumProducer").oninput = function(e){ patchAlbum(k,{ producer: e.target.value }); };
+  main.querySelector("#flagCd").onclick = function(){ patchAlbum(k,{ cd: !getA(k).cd }); render(); };
+  main.querySelector("#flagCassette").onclick = function(){ patchAlbum(k,{ cassette: !getA(k).cassette }); render(); };
+  main.querySelector("#flagVinyl").onclick = function(){ patchAlbum(k,{ vinyl: !getA(k).vinyl }); render(); };
+  main.querySelector("#flagRecommend").onclick = function(){ patchAlbum(k,{ recommend: !getA(k).recommend }); render(); };
+  main.querySelectorAll(".check[data-t]").forEach(function(b){
+    b.onclick = function(){ var i3=+b.dataset.t; patchSong(k,i3,{ done: !getS(k,i3).done }); render(); };
+  });
+  main.querySelectorAll(".tbtn").forEach(function(b){
+    b.onclick = function(){ var i4=+b.dataset.x; openTrack = openTrack===i4 ? null : i4; render(); };
+  });
+  main.querySelectorAll(".sdot").forEach(function(d){
+    d.onclick = function(){
+      var i6=+d.dataset.sr, rv=+d.dataset.rv, cur=getS(k,i6).rating||0;
+      patchSong(k,i6,{ rating: cur===rv ? 0 : rv }); render();
+    };
+  });
+  main.querySelectorAll(".vpill").forEach(function(pl){
+    pl.onclick = function(){
+      var i5=+pl.dataset.vt, v=pl.dataset.v, cur=getS(k,i5).vibes||[];
+      var next = cur.indexOf(v)>=0 ? cur.filter(function(x){ return x!==v; }) : cur.concat([v]);
+      patchSong(k,i5,{ vibes: next }); render();
+    };
+  });
+  main.querySelectorAll(".spill").forEach(function(pl){
+    pl.onclick = function(){
+      var i7=+pl.dataset.st, sp=pl.dataset.sp, cur=getS(k,i7).standout||[];
+      var next = cur.indexOf(sp)>=0 ? cur.filter(function(x){ return x!==sp; }) : cur.concat([sp]);
+      patchSong(k,i7,{ standout: next }); render();
+    };
+  });
+  main.querySelectorAll("textarea[data-nt]").forEach(function(t){
+    t.oninput = function(e){ patchSong(k,+t.dataset.nt,{ note: e.target.value }); };
+  });
+}
+
+/* draw immediately with built-in data, then load saved progress */
+try { render(); } catch(e) {
+  document.body.insertAdjacentHTML("beforeend", "<pre style='color:#E5533C;padding:16px;white-space:pre-wrap'>" + e.message + "</pre>");
+}
+load();
+</script>
+</body>
+</html>
