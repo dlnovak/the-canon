@@ -134,9 +134,34 @@ h2 { font-family: 'Archivo Black', sans-serif; font-size: 24px; margin: 6px 0 2p
 .star-row { display: flex; align-items: center; gap: 10px; padding: 10px 2px; border-bottom: 1px solid #241F2E; cursor: pointer; }
 .star-row .stars-mini { color: var(--accent); font-size: 13px; min-width: 74px; }
 .empty-note { font-size: 13px; color: #8A8296; padding: 24px 8px; text-align: center; line-height: 1.6; }
+#authGate { position: fixed; inset: 0; z-index: 999; background: #131017; display: flex; align-items: center; justify-content: center; padding: 24px; }
+#authGate.hide { display: none; }
+.auth-card { width: 100%; max-width: 360px; }
+.auth-card h1 { font-family: 'Archivo Black', sans-serif; font-size: 30px; letter-spacing: 1px; text-align: center; margin-bottom: 4px; }
+.auth-card .tag { text-align: center; font-family: 'Space Mono', monospace; font-size: 12px; color: #9B93A8; margin-bottom: 22px; }
+.auth-card input { width: 100%; background: #1C1824; border: 1px solid #332C40; border-radius: 10px; padding: 12px 14px; color: #EDE8DC; font-size: 15px; font-family: 'Archivo', sans-serif; margin-bottom: 10px; }
+.auth-card input:focus { outline: 2px solid #E5533C; outline-offset: 1px; }
+.auth-btn { width: 100%; padding: 12px; border-radius: 10px; border: none; background: #E5533C; color: #131017; font-weight: 700; font-size: 15px; cursor: pointer; margin-top: 4px; }
+.auth-toggle { text-align: center; margin-top: 16px; font-size: 13px; color: #9B93A8; }
+.auth-toggle button { background: none; border: none; color: #E5533C; font-weight: 600; cursor: pointer; font-size: 13px; }
+.auth-err { color: #F5B8B8; font-family: 'Space Mono', monospace; font-size: 12px; text-align: center; min-height: 18px; margin-top: 10px; line-height: 1.4; }
+.logout-row { text-align: center; padding: 8px 16px 4px; }
+.logout-row button { background: none; border: 1px solid #332C40; border-radius: 999px; padding: 5px 14px; color: #9B93A8; font-family: 'Space Mono', monospace; font-size: 11px; cursor: pointer; }
 </style>
+
 </head>
 <body>
+<div id="authGate">
+  <div class="auth-card">
+    <h1>THE CANON</h1>
+    <div class="tag">your listening ledger</div>
+    <input id="authEmail" type="email" placeholder="email" autocomplete="email">
+    <input id="authPass" type="password" placeholder="password" autocomplete="current-password">
+    <button class="auth-btn" id="authSubmit">Log in</button>
+    <div class="auth-err" id="authErr"></div>
+    <div class="auth-toggle" id="authToggle">New here? <button id="authSwitch">Create an account</button></div>
+  </div>
+</div>
 <div id="errbanner"></div>
 <header>
   <div class="hrow">
@@ -146,11 +171,42 @@ h2 { font-family: 'Archivo Black', sans-serif; font-size: 24px; margin: 6px 0 2p
   <p class="sub">25 essentials per genre, per decade — 900 records. Work the crate.</p>
   <div class="meter"><div id="meterFill" style="width:0%"></div></div>
 </header>
+<div class="logout-row"><span id="whoami" style="font-family:'Space Mono',monospace;font-size:11px;color:#6B6478;margin-right:10px"></span><button id="logoutBtn">log out</button></div>
 <nav class="topnav" id="topNav"></nav>
 <nav id="genreNav"></nav>
 <nav class="decades" id="decadeNav"></nav>
 <main id="main"></main>
 
+<script type="module">
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+  import { getAuth, onAuthStateChanged, signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
+  import { getFirestore, doc, getDoc, setDoc } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+
+  const firebaseConfig = {
+    apiKey: "AIzaSyDslCAd6hNt3Vy3boIINSrzvfbnbFwd8Ds",
+    authDomain: "the-canon-de97c.firebaseapp.com",
+    projectId: "the-canon-de97c",
+    storageBucket: "the-canon-de97c.firebasestorage.app",
+    messagingSenderId: "444058963250",
+    appId: "1:444058963250:web:ba5c79d92d9db571165b2b"
+  };
+
+  const app = initializeApp(firebaseConfig);
+  const auth = getAuth(app);
+  const db = getFirestore(app);
+
+  // Expose a tiny bridge for the non-module script below.
+  window.CanonFB = {
+    auth: auth,
+    onAuth: function(cb){ onAuthStateChanged(auth, cb); },
+    login: function(email, pass){ return signInWithEmailAndPassword(auth, email, pass); },
+    signup: function(email, pass){ return createUserWithEmailAndPassword(auth, email, pass); },
+    logout: function(){ return signOut(auth); },
+    loadLedger: function(uid){ return getDoc(doc(db, "ledgers", uid)); },
+    saveLedger: function(uid, data){ return setDoc(doc(db, "ledgers", uid), data); }
+  };
+  window.dispatchEvent(new Event("canonfb-ready"));
+</script>
 <script>
 window.onerror = function(msg, src, line){
   var b = document.getElementById("errbanner");
@@ -196,7 +252,8 @@ var openTrack = null;
 var loading = false, loadErr = null;
 var inflight = {};
 var saveTimer = null;
-var hasStorage = typeof window.storage !== "undefined";
+var currentUser = null;   // Firebase uid once logged in
+var fbReady = false;
 
 function gd(){ return genre + "|" + decade; }
 function akey(a){ return (a.artist + "|" + a.album).toLowerCase(); }
@@ -246,43 +303,100 @@ function totalDone(){
   return n;
 }
 
-/* ---------- persistence ---------- */
-function load(){
-  if(!hasStorage) return;
-  function t(ms){ return new Promise(function(r){ setTimeout(r, ms); }); }
-  Promise.race([window.storage.get(LEDGER_KEY), t(3000)]).then(function(r){
-    if(r && r.value){ ledger = JSON.parse(r.value); render(); }
-  }).catch(function(){});
-  Promise.race([window.storage.get(CACHE_KEY), t(3000)]).then(function(r){
-    if(r && r.value){
-      var saved = JSON.parse(r.value);
-      // Baked tracklists always win/persist; saved data only adds to them.
+/* ---------- persistence (Firestore) ---------- */
+function loadFromCloud(){
+  if(!currentUser || !window.CanonFB) return;
+  setStatus("loading…");
+  window.CanonFB.loadLedger(currentUser).then(function(snap){
+    if(snap && snap.exists()){
+      var data = snap.data() || {};
+      ledger = data.ledger || {};
+      // Merge any user-saved tracklists on top of baked ones (baked always win).
       Object.keys(BAKED).forEach(function(k){ tracksCache[k] = BAKED[k]; });
-      Object.keys(saved).forEach(function(k){ if(!tracksCache[k]) tracksCache[k] = saved[k]; });
-      render();
+      var savedTracks = data.tracks || {};
+      Object.keys(savedTracks).forEach(function(k){ if(!tracksCache[k]) tracksCache[k] = savedTracks[k]; });
     }
-  }).catch(function(){});
+    setStatus("");
+    render();
+  }).catch(function(e){
+    setStatus("load failed");
+    render();
+  });
 }
 function scheduleSave(){
+  if(!currentUser){ return; }
   setStatus("saving…");
   clearTimeout(saveTimer);
   saveTimer = setTimeout(function(){
-    if(hasStorage){
-      Promise.resolve().then(function(){
-        return window.storage.set(LEDGER_KEY, JSON.stringify(ledger));
-      }).then(function(){
-        var extra = {};
-        Object.keys(tracksCache).forEach(function(k){ if(!BAKED[k]) extra[k] = tracksCache[k]; });
-        return window.storage.set(CACHE_KEY, JSON.stringify(extra));
-      }).then(function(){ setStatus("saved ✓"); })
-      .catch(function(){ setStatus("in-memory only"); })
+    var extra = {};
+    Object.keys(tracksCache).forEach(function(k){ if(!BAKED[k]) extra[k] = tracksCache[k]; });
+    window.CanonFB.saveLedger(currentUser, { ledger: ledger, tracks: extra, updated: Date.now() })
+      .then(function(){ setStatus("saved ✓"); })
+      .catch(function(){ setStatus("save failed"); })
       .then(function(){ setTimeout(function(){ setStatus(""); }, 2000); });
-    } else {
-      setStatus("in-memory only");
-      setTimeout(function(){ setStatus(""); }, 2000);
-    }
   }, 800);
 }
+
+/* ---------- auth flow ---------- */
+var authMode = "login"; // or "signup"
+function wireAuth(){
+  fbReady = true;
+  var gate = document.getElementById("authGate");
+  var emailEl = document.getElementById("authEmail");
+  var passEl = document.getElementById("authPass");
+  var errEl = document.getElementById("authErr");
+  var submitEl = document.getElementById("authSubmit");
+  var switchEl = document.getElementById("authSwitch");
+  var toggleEl = document.getElementById("authToggle");
+
+  function friendlyErr(code){
+    if(!code) return "Something went wrong. Try again.";
+    if(code.indexOf("invalid-credential")>=0 || code.indexOf("wrong-password")>=0 || code.indexOf("user-not-found")>=0) return "Wrong email or password.";
+    if(code.indexOf("email-already-in-use")>=0) return "That email already has an account — try logging in.";
+    if(code.indexOf("weak-password")>=0) return "Password should be at least 6 characters.";
+    if(code.indexOf("invalid-email")>=0) return "That doesn't look like a valid email.";
+    if(code.indexOf("network")>=0) return "Network problem. Check your connection.";
+    return code.replace("auth/","").replace(/-/g," ");
+  }
+  function doSubmit(){
+    errEl.textContent = "";
+    var email = emailEl.value.trim(), pass = passEl.value;
+    if(!email || !pass){ errEl.textContent = "Enter your email and password."; return; }
+    submitEl.disabled = true; submitEl.textContent = (authMode==="login"?"Logging in…":"Creating…");
+    var op = authMode==="login" ? window.CanonFB.login(email, pass) : window.CanonFB.signup(email, pass);
+    op.catch(function(e){ errEl.textContent = friendlyErr((e && e.code) || String(e)); })
+      .then(function(){ submitEl.disabled = false; submitEl.textContent = (authMode==="login"?"Log in":"Create account"); });
+  }
+  submitEl.onclick = doSubmit;
+  passEl.onkeydown = function(e){ if(e.key === "Enter") doSubmit(); };
+  switchEl.onclick = function(){
+    authMode = (authMode==="login") ? "signup" : "login";
+    submitEl.textContent = (authMode==="login") ? "Log in" : "Create account";
+    toggleEl.innerHTML = (authMode==="login")
+      ? 'New here? <button id="authSwitch">Create an account</button>'
+      : 'Have an account? <button id="authSwitch">Log in</button>';
+    document.getElementById("authSwitch").onclick = switchEl.onclick;
+    errEl.textContent = "";
+  };
+  document.getElementById("logoutBtn").onclick = function(){ window.CanonFB.logout(); };
+
+  window.CanonFB.onAuth(function(user){
+    if(user){
+      currentUser = user.uid;
+      gate.classList.add("hide");
+      var who = document.getElementById("whoami");
+      if(who) who.textContent = user.email || "";
+      ledger = {};
+      Object.keys(BAKED).forEach(function(k){ tracksCache[k] = BAKED[k]; });
+      loadFromCloud();
+    } else {
+      currentUser = null;
+      gate.classList.remove("hide");
+    }
+  });
+}
+if(window.CanonFB){ wireAuth(); }
+else { window.addEventListener("canonfb-ready", wireAuth); }
 function setStatus(msg){
   var el = document.getElementById("status");
   if(el) el.textContent = msg || (totalDone() + "/" + TOTAL_ALBUMS + " albums");
@@ -769,7 +883,7 @@ function renderAlbum(main){
 try { render(); } catch(e) {
   document.body.insertAdjacentHTML("beforeend", "<pre style='color:#E5533C;padding:16px;white-space:pre-wrap'>" + e.message + "</pre>");
 }
-load();
+/* Data loads from Firestore once the user logs in (see wireAuth). */
 </script>
 </body>
 </html>
