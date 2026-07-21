@@ -142,6 +142,9 @@ h2 { font-family: 'Archivo Black', sans-serif; font-size: 24px; margin: 6px 0 2p
 .auth-card input { width: 100%; background: #1C1824; border: 1px solid #332C40; border-radius: 10px; padding: 12px 14px; color: #EDE8DC; font-size: 15px; font-family: 'Archivo', sans-serif; margin-bottom: 10px; }
 .auth-card input:focus { outline: 2px solid #E5533C; outline-offset: 1px; }
 .auth-btn { width: 100%; padding: 12px; border-radius: 10px; border: none; background: #E5533C; color: #131017; font-weight: 700; font-size: 15px; cursor: pointer; margin-top: 4px; }
+.google-btn { width: 100%; display: flex; align-items: center; justify-content: center; gap: 10px; padding: 13px; border-radius: 10px; border: 1px solid #3A3348; background: #EDE8DC; color: #1C1824; font-weight: 600; font-size: 15px; cursor: pointer; margin-top: 8px; font-family: 'Archivo', sans-serif; transition: background .12s ease; }
+.google-btn:hover { background: #fff; }
+.google-btn svg { flex: 0 0 auto; }
 .auth-toggle { text-align: center; margin-top: 16px; font-size: 13px; color: #9B93A8; }
 .auth-toggle button { background: none; border: none; color: #E5533C; font-weight: 600; cursor: pointer; font-size: 13px; }
 .auth-err { color: #F5B8B8; font-family: 'Space Mono', monospace; font-size: 12px; text-align: center; min-height: 18px; margin-top: 10px; line-height: 1.4; }
@@ -155,11 +158,11 @@ h2 { font-family: 'Archivo Black', sans-serif; font-size: 24px; margin: 6px 0 2p
   <div class="auth-card">
     <h1>THE CANON</h1>
     <div class="tag">your listening ledger</div>
-    <input id="authEmail" type="email" placeholder="email" autocomplete="email">
-    <input id="authPass" type="password" placeholder="password" autocomplete="current-password">
-    <button class="auth-btn" id="authSubmit">Log in</button>
+    <button class="google-btn" id="googleBtn">
+      <svg width="18" height="18" viewBox="0 0 18 18" xmlns="http://www.w3.org/2000/svg"><path fill="#4285F4" d="M17.64 9.2c0-.64-.06-1.25-.16-1.84H9v3.48h4.84a4.14 4.14 0 0 1-1.8 2.72v2.26h2.92c1.7-1.57 2.68-3.88 2.68-6.62z"/><path fill="#34A853" d="M9 18c2.43 0 4.47-.8 5.96-2.18l-2.92-2.26c-.8.54-1.83.86-3.04.86-2.34 0-4.32-1.58-5.03-3.7H.96v2.33A9 9 0 0 0 9 18z"/><path fill="#FBBC05" d="M3.97 10.72a5.4 5.4 0 0 1 0-3.44V4.95H.96a9 9 0 0 0 0 8.1l3.01-2.33z"/><path fill="#EA4335" d="M9 3.58c1.32 0 2.5.45 3.44 1.35l2.58-2.58C13.47.89 11.43 0 9 0A9 9 0 0 0 .96 4.95l3.01 2.33C4.68 5.16 6.66 3.58 9 3.58z"/></svg>
+      Continue with Google
+    </button>
     <div class="auth-err" id="authErr"></div>
-    <div class="auth-toggle" id="authToggle">New here? <button id="authSwitch">Create an account</button></div>
   </div>
 </div>
 <div id="errbanner"></div>
@@ -179,7 +182,7 @@ h2 { font-family: 'Archivo Black', sans-serif; font-size: 24px; margin: 6px 0 2p
 
 <script type="module">
   import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
-  import { getAuth, onAuthStateChanged, signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
+  import { getAuth, onAuthStateChanged, GoogleAuthProvider, signInWithPopup, signOut } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
   import { getFirestore, doc, getDoc, setDoc } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 
   const firebaseConfig = {
@@ -199,8 +202,7 @@ h2 { font-family: 'Archivo Black', sans-serif; font-size: 24px; margin: 6px 0 2p
   window.CanonFB = {
     auth: auth,
     onAuth: function(cb){ onAuthStateChanged(auth, cb); },
-    login: function(email, pass){ return signInWithEmailAndPassword(auth, email, pass); },
-    signup: function(email, pass){ return createUserWithEmailAndPassword(auth, email, pass); },
+    loginGoogle: function(){ return signInWithPopup(auth, new GoogleAuthProvider()); },
     logout: function(){ return signOut(auth); },
     loadLedger: function(uid){ return getDoc(doc(db, "ledgers", uid)); },
     saveLedger: function(uid, data){ return setDoc(doc(db, "ledgers", uid), data); }
@@ -338,45 +340,26 @@ function scheduleSave(){
 }
 
 /* ---------- auth flow ---------- */
-var authMode = "login"; // or "signup"
 function wireAuth(){
   fbReady = true;
   var gate = document.getElementById("authGate");
-  var emailEl = document.getElementById("authEmail");
-  var passEl = document.getElementById("authPass");
   var errEl = document.getElementById("authErr");
-  var submitEl = document.getElementById("authSubmit");
-  var switchEl = document.getElementById("authSwitch");
-  var toggleEl = document.getElementById("authToggle");
+  var googleBtn = document.getElementById("googleBtn");
 
   function friendlyErr(code){
     if(!code) return "Something went wrong. Try again.";
-    if(code.indexOf("invalid-credential")>=0 || code.indexOf("wrong-password")>=0 || code.indexOf("user-not-found")>=0) return "Wrong email or password.";
-    if(code.indexOf("email-already-in-use")>=0) return "That email already has an account — try logging in.";
-    if(code.indexOf("weak-password")>=0) return "Password should be at least 6 characters.";
-    if(code.indexOf("invalid-email")>=0) return "That doesn't look like a valid email.";
+    if(code.indexOf("popup-closed-by-user")>=0 || code.indexOf("cancelled-popup")>=0) return "Sign-in cancelled.";
+    if(code.indexOf("popup-blocked")>=0) return "Your browser blocked the popup. Allow popups and try again.";
+    if(code.indexOf("unauthorized-domain")>=0) return "This domain isn't authorized in Firebase yet.";
     if(code.indexOf("network")>=0) return "Network problem. Check your connection.";
     return code.replace("auth/","").replace(/-/g," ");
   }
-  function doSubmit(){
+  googleBtn.onclick = function(){
     errEl.textContent = "";
-    var email = emailEl.value.trim(), pass = passEl.value;
-    if(!email || !pass){ errEl.textContent = "Enter your email and password."; return; }
-    submitEl.disabled = true; submitEl.textContent = (authMode==="login"?"Logging in…":"Creating…");
-    var op = authMode==="login" ? window.CanonFB.login(email, pass) : window.CanonFB.signup(email, pass);
-    op.catch(function(e){ errEl.textContent = friendlyErr((e && e.code) || String(e)); })
-      .then(function(){ submitEl.disabled = false; submitEl.textContent = (authMode==="login"?"Log in":"Create account"); });
-  }
-  submitEl.onclick = doSubmit;
-  passEl.onkeydown = function(e){ if(e.key === "Enter") doSubmit(); };
-  switchEl.onclick = function(){
-    authMode = (authMode==="login") ? "signup" : "login";
-    submitEl.textContent = (authMode==="login") ? "Log in" : "Create account";
-    toggleEl.innerHTML = (authMode==="login")
-      ? 'New here? <button id="authSwitch">Create an account</button>'
-      : 'Have an account? <button id="authSwitch">Log in</button>';
-    document.getElementById("authSwitch").onclick = switchEl.onclick;
-    errEl.textContent = "";
+    googleBtn.disabled = true;
+    window.CanonFB.loginGoogle()
+      .catch(function(e){ errEl.textContent = friendlyErr((e && e.code) || String(e)); })
+      .then(function(){ googleBtn.disabled = false; });
   };
   document.getElementById("logoutBtn").onclick = function(){ window.CanonFB.logout(); };
 
@@ -385,7 +368,7 @@ function wireAuth(){
       currentUser = user.uid;
       gate.classList.add("hide");
       var who = document.getElementById("whoami");
-      if(who) who.textContent = user.email || "";
+      if(who) who.textContent = user.email || user.displayName || "";
       ledger = {};
       Object.keys(BAKED).forEach(function(k){ tracksCache[k] = BAKED[k]; });
       loadFromCloud();
